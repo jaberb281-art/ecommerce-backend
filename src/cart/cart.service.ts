@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -17,7 +17,6 @@ export class CartService {
                 include: { items: true },
             });
         }
-
         return cart;
     }
 
@@ -25,10 +24,7 @@ export class CartService {
         const cart = await this.getOrCreateCart(userId);
 
         const existingItem = await this.prisma.cartItem.findFirst({
-            where: {
-                cartId: cart.id,
-                productId,
-            },
+            where: { cartId: cart.id, productId },
         });
 
         if (existingItem) {
@@ -39,24 +35,45 @@ export class CartService {
         }
 
         return this.prisma.cartItem.create({
-            data: {
-                cartId: cart.id,
-                productId,
-                quantity,
-            },
+            data: { cartId: cart.id, productId, quantity },
         });
     }
 
     async getCart(userId: string) {
-        return this.prisma.cart.findUnique({
+        const cart = await this.prisma.cart.findUnique({
             where: { userId },
             include: {
                 items: {
-                    include: {
-                        product: true,
-                    },
+                    include: { product: true },
                 },
             },
+        });
+
+        if (!cart) return { items: [], total: 0 };
+
+        // Calculate total price based on product prices and quantities
+        const total = cart.items.reduce((acc, item) => {
+            return acc + item.product.price * item.quantity;
+        }, 0);
+
+        return { ...cart, total };
+    }
+
+    async removeFromCart(userId: string, productId: string) {
+        const cart = await this.prisma.cart.findUnique({ where: { userId } });
+        if (!cart) throw new NotFoundException('Cart not found');
+
+        return this.prisma.cartItem.deleteMany({
+            where: { cartId: cart.id, productId },
+        });
+    }
+
+    async clearCart(userId: string) {
+        const cart = await this.prisma.cart.findUnique({ where: { userId } });
+        if (!cart) throw new NotFoundException('Cart not found');
+
+        return this.prisma.cartItem.deleteMany({
+            where: { cartId: cart.id },
         });
     }
 }

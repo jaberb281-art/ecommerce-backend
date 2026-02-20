@@ -1,3 +1,32 @@
+# 🏎️ Tesla E-Commerce Backend (NestJS + Prisma)
+
+A professional, high-performance API for a luxury electric vehicle shop. This backend handles secure transactions, automated inventory, and multi-level user roles.
+
+## 🌟 Key Features
+
+### 🛒 Secure Checkout & Inventory
+* **Atomic Transactions:** Uses `Prisma.$transaction` to ensure orders are only created if stock is available and the cart is successfully cleared.
+* **Live Stock Tracking:** Automatically decrements Tesla inventory upon purchase.
+* **Snapshot Pricing:** Records the exact price at the time of purchase to ensure financial data integrity.
+
+### 🛡️ Access Control (RBAC)
+* **Roles System:** Built-in logic for `USER` and `ADMIN` levels.
+* **Protected Routes:** Only Admins can add new products, update order statuses, or view global sales stats.
+* **JWT Auth:** Industry-standard secure login and registration.
+
+### 👔 Admin Dashboard Logic
+* **Global Order Visibility:** Admins can view every transaction made in the store.
+* **Order Management:** Transition orders through states: `PENDING` ➔ `SHIPPED` ➔ `COMPLETED`.
+* **Revenue Tracking:** Integrated stats for total revenue and product performance.
+
+---
+
+## 🛠️ Technical Setup
+
+### Installation
+```bash
+$ npm install
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
