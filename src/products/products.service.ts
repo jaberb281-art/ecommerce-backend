@@ -9,7 +9,6 @@ export class ProductsService {
 
   async create(dto: CreateProductDto) {
     return this.prisma.product.create({
-      // We spread the DTO to make sure Prisma gets exactly what it needs
       data: {
         name: dto.name,
         description: dto.description,
@@ -18,6 +17,7 @@ export class ProductsService {
         images: dto.images,
         categoryId: dto.categoryId,
       },
+      include: { category: true }, // 👈 This returns the Category object too!
     });
   }
 

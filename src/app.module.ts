@@ -6,6 +6,7 @@ import { ProductsModule } from './products/products.module';
 import { CartModule } from './cart/cart.module';
 import { OrdersModule } from './orders/orders.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -13,7 +14,8 @@ import { PrismaModule } from './prisma/prisma.module';
     AuthModule,
     ProductsModule,
     CartModule,
-    OrdersModule, // 👈 2. Add it to this list
+    OrdersModule,
+    CategoriesModule, // 👈 2. Add it to this list
   ],
   controllers: [AppController],
   providers: [AppService],
