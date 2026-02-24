@@ -1,21 +1,36 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ValidationPipe } from '@nestjs/common'; // Add this too for later!
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // ✅ ADD THIS LINE to fix the "Failed to fetch" error
-  app.enableCors();
+  // CORS — locked to specific origins in production via environment variable.
+  // Set ALLOWED_ORIGIN=https://yourfrontend.com in your .env for production.
+  // Falls back to all origins in development.
+  app.enableCors({
+    origin: process.env.ALLOWED_ORIGIN || '*',
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-idempotency-key'],
+  });
 
-  // ✅ ADD THIS LINE to make sure your DTO data is validated
-  app.useGlobalPipes(new ValidationPipe());
+  // Global validation pipe:
+  // - whitelist: strips any fields not in the DTO silently
+  // - forbidNonWhitelisted: throws 400 if unknown fields are sent
+  // - transform: enables @Transform decorators and auto type coercion
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
-  // --- Swagger Setup ---
+  // Swagger
   const config = new DocumentBuilder()
-    .setTitle('E-commerce API')
-    .setDescription('Test my API endpoints here')
+    .setTitle('Tesla E-Commerce API')
+    .setDescription('Test API endpoints here')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
@@ -25,6 +40,6 @@ async function bootstrap() {
 
   await app.listen(3000);
   console.log('🚀 Server running at http://localhost:3000');
-  console.log('📖 Test your API at http://localhost:3000/api');
+  console.log('📖 Swagger docs at http://localhost:3000/api');
 }
 bootstrap();

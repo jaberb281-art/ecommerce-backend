@@ -1,47 +1,57 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNumber, IsArray, IsOptional, Min, IsUrl } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+    IsString,
+    IsNumber,
+    IsInt,
+    IsArray,
+    IsOptional,
+    IsUUID,
+    IsUrl,
+    Min,
+} from 'class-validator';
 
 export class CreateProductDto {
     @ApiProperty({
-        example: 'Tesla Model 3',
-        description: 'The full name of the product'
+        example: 'Victorious XIII',
+        description: 'The full name of the product',
     })
     @IsString()
     name: string;
 
-    @ApiProperty({
-        example: 'Dual Motor All-Wheel Drive, 0-60 mph in 3.1s',
-        description: 'Detailed product description for mobile/web views'
+    @ApiPropertyOptional({
+        example: 'Limited edition streetwear piece — Born in Bahrain.',
+        description: 'Detailed product description for web and mobile views',
     })
+    @IsOptional()
     @IsString()
-    description: string;
+    description?: string; // Optional — matches Prisma schema (description String?)
 
-    @ApiProperty({ example: 45000, description: 'Price in USD' })
+    @ApiProperty({ example: 6.5, description: 'Price in BHD' })
     @IsNumber()
-    @Min(0) // 🛡️ Prevents negative prices
+    @Min(0, { message: 'Price cannot be negative' })
     price: number;
 
     @ApiProperty({ example: 10, description: 'Available units in inventory' })
-    @IsNumber()
-    @Min(0) // 🛡️ Prevents negative stock
+    @IsInt({ message: 'Stock must be a whole number' })
+    @Min(0, { message: 'Stock cannot be negative' })
     stock: number;
 
     @ApiProperty({
         example: [
-            'https://res.cloudinary.com/dj5jz6ydf/image/upload/v1/tesla_shop/exterior.jpg',
-            'https://res.cloudinary.com/dj5jz6ydf/image/upload/v1/tesla_shop/interior.jpg'
+            'https://res.cloudinary.com/demo/image/upload/v1/shbash/product1.jpg',
+            'https://res.cloudinary.com/demo/image/upload/v1/shbash/product2.jpg',
         ],
         description: 'Array of Cloudinary image URLs',
     })
     @IsArray()
-    @IsString({ each: true }) // 🛡️ Ensures every item in the array is a string
-    @IsUrl({}, { each: true }) // 🛡️ Ensures they are valid URLs
+    @IsString({ each: true })
+    @IsUrl({}, { each: true, message: 'Each image must be a valid URL' })
     images: string[];
 
     @ApiProperty({
-        example: 'e3b0c442-98fc-11eb-a8b3-0242ac130003',
-        description: 'The UUID of the category'
+        example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        description: 'The UUID of the category this product belongs to',
     })
-    @IsString()
+    @IsUUID('4', { message: 'categoryId must be a valid UUID' })
     categoryId: string;
 }

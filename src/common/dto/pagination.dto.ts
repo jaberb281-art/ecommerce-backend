@@ -22,4 +22,9 @@ export class PaginationDto {
     @IsString()
     @IsOptional()
     categoryId?: string;
+
+    @ApiPropertyOptional({ description: 'Search products by name' })
+    @IsString()
+    @IsOptional()
+    search?: string;
 }

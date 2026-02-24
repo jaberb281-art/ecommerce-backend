@@ -1,16 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum } from 'class-validator';
-
-// This matches your Prisma OrderStatus enum
-export enum OrderStatus {
-    PENDING = 'PENDING',
-    SHIPPED = 'SHIPPED',
-    COMPLETED = 'COMPLETED',
-    CANCELLED = 'CANCELLED',
-}
+import { OrderStatus } from '@prisma/client'; // Single source of truth — never redefine this
 
 export class UpdateOrderStatusDto {
-    @ApiProperty({ enum: OrderStatus })
-    @IsEnum(OrderStatus)
+    @ApiProperty({
+        enum: OrderStatus,
+        example: OrderStatus.SHIPPED,
+        description: 'Valid transitions: PENDING → SHIPPED or CANCELLED, SHIPPED → COMPLETED',
+    })
+    @IsEnum(OrderStatus, {
+        message: `Status must be one of: ${Object.values(OrderStatus).join(', ')}`,
+    })
     status: OrderStatus;
 }

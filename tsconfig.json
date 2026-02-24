@@ -4,7 +4,8 @@
     "moduleResolution": "nodenext",
     "types": [
       "node",
-      "multer"
+      "multer",
+      "jest"
     ],
     "resolvePackageJsonExports": true,
     "esModuleInterop": true,

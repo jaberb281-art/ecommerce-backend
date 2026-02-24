@@ -1,128 +1,299 @@
-# 🏎️ Tesla E-Commerce Backend (NestJS + Prisma)
+# 🎨 Shbash — E-Commerce Backend
 
-A professional, high-performance API for a luxury electric vehicle shop. This backend handles secure transactions, automated inventory, and multi-level user roles.
+> **FEEL IT LUXURY. BORN IN BAHRAIN.**
+
+The official backend API powering the new **Shbash** shopping experience — a Bahraini creative brand selling art, stickers, clothing, and collectibles. Built to serve the web app, iOS, and Android with a single unified API.
+
+---
 
 ## 🌟 Key Features
 
 ### 🛒 Secure Checkout & Inventory
-* **Atomic Transactions:** Uses `Prisma.$transaction` to ensure orders are only created if stock is available and the cart is successfully cleared.
-* **Live Stock Tracking:** Automatically decrements Tesla inventory upon purchase.
-* **Snapshot Pricing:** Records the exact price at the time of purchase to ensure financial data integrity.
+- **Atomic Transactions** — Orders are only created if stock is available and the cart is cleared successfully, all in a single DB transaction. No overselling, no ghost carts.
+- **Race Condition Protection** — Stock check and decrement happen atomically, preventing two customers from buying the last item simultaneously.
+- **Snapshot Pricing** — Records the exact price at the time of purchase to ensure financial data integrity regardless of future price changes.
+- **Idempotent Checkout** — Supports idempotency keys so client retries on slow mobile connections never create duplicate orders.
 
-### 🛡️ Access Control (RBAC)
-* **Roles System:** Built-in logic for `USER` and `ADMIN` levels.
-* **Protected Routes:** Only Admins can add new products, update order statuses, or view global sales stats.
-* **JWT Auth:** Industry-standard secure login and registration.
+### 🛡️ Auth & Access Control (RBAC)
+- **JWT Authentication** — Secure, stateless login with configurable token expiry.
+- **Role-Based Access** — `USER` and `ADMIN` roles with protected routes.
+- **Timing Attack Prevention** — Login always runs bcrypt regardless of whether the email exists, preventing email enumeration.
 
-### 👔 Admin Dashboard Logic
-* **Global Order Visibility:** Admins can view every transaction made in the store.
-* **Order Management:** Transition orders through states: `PENDING` ➔ `SHIPPED` ➔ `COMPLETED`.
-* **Revenue Tracking:** Integrated stats for total revenue and product performance.
+### 👔 Admin Dashboard
+- **Order Management** — State machine transitions: `PENDING` → `SHIPPED` → `COMPLETED` or `CANCELLED`. Invalid transitions are rejected.
+- **Global Order Visibility** — Admins can view all transactions across all customers.
+- **Revenue & Stats** — Total revenue (excluding cancelled orders), order count, and product count in a single endpoint.
+
+### 🗂️ Product & Category Management
+- **Paginated Listings** — Filter by category, search by name, paginate results.
+- **Category CRUD** — Full create, read, update, delete with product count per category.
+- **Admin-Only Writes** — Only admins can create, update, or delete products and categories.
+
+### 🛒 Smart Cart
+- **Auto Cart Creation** — Cart is automatically created on first add using upsert — no race conditions.
+- **Stock Validation** — Adding to cart checks live stock so checkout failures are caught early.
+- **Live Cart Total** — Total calculated from current prices on every fetch.
 
 ---
 
-## 🛠️ Technical Setup
+## 🏗️ Architecture Overview
+
+```
+src/
+├── auth/                   # JWT auth, guards, strategy, decorators
+│   ├── decorators/
+│   ├── dto/
+│   ├── guards/
+│   └── strategies/
+├── cart/                   # Cart management
+│   └── dto/
+├── categories/             # Product categories
+│   └── dto/
+├── common/                 # Shared DTOs (pagination etc.)
+│   └── dto/
+├── orders/                 # Checkout, order history, admin stats
+│   └── dto/
+├── prisma/                 # PrismaService and module
+├── products/               # Product CRUD with search and pagination
+│   └── dto/
+├── app.module.ts
+└── main.ts
+```
+
+**Request lifecycle:**
+```
+Client (Web / iOS / Android)
+  → ValidationPipe (DTO validation + field stripping)
+    → JwtAuthGuard (token verification)
+      → RolesGuard (USER / ADMIN check)
+        → Controller
+          → Service
+            → Prisma
+              → PostgreSQL
+```
+
+---
+
+## 🗄️ Database Schema
+
+```
+User
+ ├── id, email, password, name, role (USER | ADMIN)
+ ├── Cart (one-to-one)
+ └── Orders (one-to-many)
+
+Category
+ └── Products (one-to-many, cascade delete)
+
+Product
+ ├── id, name, description, price, stock, images[]
+ ├── categoryId → Category
+ ├── CartItems (one-to-many)
+ └── OrderItems (one-to-many)
+
+Cart
+ ├── userId → User (unique)
+ └── CartItems (one-to-many, cascade delete)
+
+CartItem
+ ├── cartId → Cart
+ ├── productId → Product
+ └── quantity
+
+Order
+ ├── userId → User
+ ├── total, status (PENDING | SHIPPED | COMPLETED | CANCELLED)
+ ├── idempotencyKey (unique, optional)
+ └── OrderItems (one-to-many)
+
+OrderItem
+ ├── orderId → Order
+ ├── productId → Product
+ ├── quantity
+ └── price  ← snapshotted at time of purchase
+```
+
+---
+
+## ⚙️ Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/shbash
+
+# JWT
+JWT_SECRET=your-long-random-secret-at-least-32-characters
+JWT_EXPIRES_IN=1h
+
+# Security
+BCRYPT_ROUNDS=12
+
+# CORS — set to your frontend/app URL in production
+ALLOWED_ORIGIN=http://localhost:5173
+```
+
+> ⚠️ **Never commit `.env` to version control.** The app will throw on startup if `JWT_SECRET` or `DATABASE_URL` are missing.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+
+- PostgreSQL
+- npm
 
 ### Installation
-```bash
-$ npm install
-
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
-
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
 
 ```bash
-$ npm install
+# Clone the repo
+git clone https://github.com/jaberb281-art/ecommerce-backend.git
+cd ecommerce-backend
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your values
+
+# Run database migrations
+npx prisma migrate dev
+
+# Generate Prisma client
+npx prisma generate
 ```
 
-## Compile and run the project
+### Running the Server
 
 ```bash
-# development
-$ npm run start
+# Development (watch mode)
+npm run start:dev
 
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+# Production
+npm run start:prod
 ```
 
-## Run tests
+Server: `http://localhost:3000`  
+Swagger docs: `http://localhost:3000/api`
+
+---
+
+## 📡 API Endpoints
+
+### Auth
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/auth/register` | Public | Register a new account |
+| `POST` | `/auth/login` | Public | Login and receive JWT |
+| `GET` | `/auth/me` | User | Get current user profile |
+
+### Products
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/products` | Public | List products (paginated, filterable, searchable) |
+| `GET` | `/products/:id` | Public | Get a single product |
+| `POST` | `/products` | Admin | Create a product |
+| `PATCH` | `/products/:id` | Admin | Update a product |
+| `DELETE` | `/products/:id` | Admin | Delete a product |
+
+**Query params for `GET /products`:**
+| Param | Type | Description |
+|-------|------|-------------|
+| `page` | number | Page number (default: 1) |
+| `limit` | number | Items per page (default: 10, max: 50) |
+| `categoryId` | string | Filter by category |
+| `search` | string | Search by product name |
+
+### Categories
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/categories` | Public | List all categories with product count |
+| `GET` | `/categories/:id` | Public | Get category with its products |
+| `POST` | `/categories` | Admin | Create a category |
+| `PATCH` | `/categories/:id` | Admin | Update a category |
+| `DELETE` | `/categories/:id` | Admin | Delete a category |
+
+### Cart
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/cart` | User | Get current cart with live total |
+| `POST` | `/cart` | User | Add item to cart |
+| `DELETE` | `/cart/:productId` | User | Remove item from cart |
+| `DELETE` | `/cart` | User | Clear entire cart |
+
+### Orders
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/orders/checkout` | User | Checkout cart and create order |
+| `GET` | `/orders` | User | Get my orders (paginated) |
+| `GET` | `/orders/admin/all` | Admin | Get all orders (paginated) |
+| `GET` | `/orders/admin/stats` | Admin | Revenue and order stats |
+| `PATCH` | `/orders/:id/status` | Admin | Update order status |
+
+**Idempotent checkout (recommended for mobile clients):**
+```http
+POST /orders/checkout
+Authorization: Bearer <token>
+x-idempotency-key: <unique-client-generated-uuid>
+```
+
+---
+
+## 🧪 Running Tests
 
 ```bash
-# unit tests
-$ npm run test
+# Unit tests
+npm run test
 
-# e2e tests
-$ npm run test:e2e
+# Watch mode
+npm run test:watch
 
-# test coverage
-$ npm run test:cov
+# Coverage report
+npm run test:cov
+
+# E2E tests
+npm run test:e2e
 ```
 
-## Deployment
+---
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## 🔒 Security Highlights
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+- Passwords hashed with `bcrypt` (configurable rounds via `BCRYPT_ROUNDS`)
+- JWT secret validated at startup — app refuses to boot without it
+- `ValidationPipe` with `whitelist: true` strips unknown fields from all requests
+- Timing-safe login prevents email enumeration attacks
+- CORS locked to allowed origins in production
+- Admin routes protected by both `JwtAuthGuard` and `RolesGuard`
+- Atomic stock operations prevent overselling under high concurrency
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+---
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## 📦 Tech Stack
 
-## Resources
+| Layer | Technology |
+|-------|------------|
+| Framework | NestJS (TypeScript) |
+| ORM | Prisma |
+| Database | PostgreSQL |
+| Auth | JWT + Passport |
+| Validation | class-validator + class-transformer |
+| Documentation | Swagger / OpenAPI |
+| Testing | Jest |
 
-Check out a few resources that may come in handy when working with NestJS:
+---
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## 🌐 Platforms
 
-## Support
+This backend serves all Shbash client platforms via a single unified API:
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+- 🌍 **Web App**
+- 🍎 **iOS**
+- 🤖 **Android**
 
-## Stay in touch
+---
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
-"# ecommerce-backend" 
+*© 2026 Shbash — Born in Bahrain 🇧🇭*

@@ -1,34 +1,72 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common'; // 1. Added UnauthorizedException
+import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { PrismaService } from '../../prisma/prisma.service'; // Adjust path if needed
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../prisma/prisma.service';
+
+// ---------------------------------------------------------------------------
+// Typed JWT payload — matches what AuthService.login() signs
+// ---------------------------------------------------------------------------
+interface JwtPayload {
+    sub: string;   // user ID
+    email: string;
+    role: string;
+    iat?: number;  // issued at (added automatically by JwtService)
+    exp?: number;  // expiry (added automatically by JwtService)
+}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-    constructor(private prisma: PrismaService) { // 2. Must have 'private' here
+    private readonly logger = new Logger(JwtStrategy.name);
+
+    constructor(
+        private prisma: PrismaService,
+        configService: ConfigService,
+    ) {
+        const secret = configService.get<string>('JWT_SECRET');
+
+        // Crash on startup if secret is missing — same guard as auth.module.ts
+        if (!secret) {
+            throw new Error(
+                'JWT_SECRET is not defined in environment variables.',
+            );
+        }
+
         super({
             jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-            ignoreExpiration: false,
-            secretOrKey: process.env.JWT_SECRET || 'SUPER_SECRET_KEY_123',
+            ignoreExpiration: false, // Always verify token expiry
+            secretOrKey: secret,
         });
     }
 
-    async validate(payload: any) {
-        console.log('--- JWT Strategy Debug ---');
-        console.log('Payload received:', payload);
+    // -------------------------------------------------------------------------
+    // Called by Passport after the JWT signature is verified.
+    // The object returned here becomes req.user in controllers.
+    //
+    // NOTE: We skip the DB lookup on every request for performance.
+    // The JWT is already cryptographically verified by Passport at this point.
+    // If you need to guard against deleted/banned accounts, add Redis caching
+    // here rather than a raw DB query on every request.
+    // -------------------------------------------------------------------------
+    async validate(payload: JwtPayload) {
+        // Optional: uncomment to verify account still exists in DB.
+        // Consider adding Redis caching if you enable this.
+        //
+        // const user = await this.prisma.user.findUnique({
+        //     where: { id: payload.sub },
+        //     select: { id: true, email: true, role: true },
+        // });
+        // if (!user) {
+        //     this.logger.warn(`Token used for deleted account: ${payload.sub}`);
+        //     throw new UnauthorizedException();
+        // }
+        // return user;
 
-        // This uses the 'prisma' we injected in the constructor
-        const user = await this.prisma.user.findUnique({
-            where: { id: payload.sub },
-        });
-
-        if (!user) {
-            console.log('Error: User not found in DB');
-            throw new UnauthorizedException();
-        }
-
-        console.log('Success: User validated:', user.email);
-        const { password, ...result } = user;
-        return result;
+        // Return the payload fields as req.user — already verified by Passport
+        return {
+            id: payload.sub,
+            email: payload.email,
+            role: payload.role,
+        };
     }
 }

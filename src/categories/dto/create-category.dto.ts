@@ -1,15 +1,13 @@
-// Add IsOptional to the list below
-import { IsString, MinLength, IsOptional } from 'class-validator';
+import { IsString, MinLength, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateCategoryDto {
-    @ApiProperty({ example: 'Vehicles' })
+    @ApiProperty({
+        example: 'Stickers',
+        description: 'The name of the category (must be unique)',
+    })
     @IsString()
-    @MinLength(3)
+    @MinLength(2, { message: 'Category name must be at least 2 characters' })
+    @MaxLength(50, { message: 'Category name must not exceed 50 characters' })
     name: string;
-
-    @ApiProperty({ example: 'Electric cars and SUVs', required: false })
-    @IsString()
-    @IsOptional()
-    description?: string;
 }
