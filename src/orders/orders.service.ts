@@ -25,8 +25,10 @@ export interface UpdateStatusDto {
 // ---------------------------------------------------------------------------
 
 const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-    [OrderStatus.PENDING]: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
-    [OrderStatus.SHIPPED]: [OrderStatus.COMPLETED],
+    [OrderStatus.PENDING]: [OrderStatus.PROCESSING, OrderStatus.CANCELLED],
+    [OrderStatus.PROCESSING]: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
+    [OrderStatus.SHIPPED]: [OrderStatus.DELIVERED],
+    [OrderStatus.DELIVERED]: [OrderStatus.COMPLETED],
     [OrderStatus.COMPLETED]: [],
     [OrderStatus.CANCELLED]: [],
 };
@@ -39,6 +41,7 @@ interface AdminStatsResponse {
     totalRevenue: number;
     totalOrders: number;
     totalProducts: number;
+    totalUsers: number;  // ← dashboard needs this
 }
 
 // ---------------------------------------------------------------------------
@@ -189,6 +192,33 @@ export class OrdersService {
             },
         };
     }
+    // -----------------------------------------------------------------------
+    // GET SINGLE ORDER — for current user
+    // -----------------------------------------------------------------------
+
+    async getMyOrder(userId: string, orderId: string) {
+        const order = await this.prisma.order.findFirst({
+            where: { id: orderId, userId },
+            include: {
+                items: {
+                    include: {
+                        product: {
+                            select: { id: true, name: true, images: true, price: true }
+                        }
+                    }
+                }
+            },
+        });
+
+        if (!order) {
+            throw new NotFoundException({
+                code: 'ORDER_NOT_FOUND',
+                message: `Order ${orderId} not found`,
+            });
+        }
+
+        return order;
+    }
 
     // -----------------------------------------------------------------------
     // GET ALL ORDERS — Admin (paginated)
@@ -269,19 +299,21 @@ export class OrdersService {
 
     async getAdminStats(): Promise<AdminStatsResponse> {
         // Run all three queries in parallel — no reason to wait sequentially
-        const [revenueResult, orderCount, productCount] = await Promise.all([
+        const [revenueResult, orderCount, productCount, userCount] = await Promise.all([
             this.prisma.order.aggregate({
                 _sum: { total: true },
                 where: { status: { not: OrderStatus.CANCELLED } },
             }),
             this.prisma.order.count(),
             this.prisma.product.count(),
+            this.prisma.user.count(),
         ]);
 
         return {
             totalRevenue: revenueResult._sum.total ?? 0,
             totalOrders: orderCount,
             totalProducts: productCount,
+            totalUsers: userCount,
         };
     }
 }

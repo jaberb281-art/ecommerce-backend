@@ -10,9 +10,10 @@ async function bootstrap() {
   // Set ALLOWED_ORIGIN=https://yourfrontend.com in your .env for production.
   // Falls back to all origins in development.
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGIN || '*',
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    origin: ['http://localhost:3002', 'http://localhost:3001'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-idempotency-key'],
+    credentials: true,
   });
 
   // Global validation pipe:

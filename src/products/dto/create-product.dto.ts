@@ -8,7 +8,9 @@ import {
     IsUUID,
     IsUrl,
     Min,
+    IsEnum,
 } from 'class-validator';
+import { ProductStatus } from '@prisma/client';
 
 export class CreateProductDto {
     @ApiProperty({
@@ -24,7 +26,7 @@ export class CreateProductDto {
     })
     @IsOptional()
     @IsString()
-    description?: string; // Optional — matches Prisma schema (description String?)
+    description?: string;
 
     @ApiProperty({ example: 6.5, description: 'Price in BHD' })
     @IsNumber()
@@ -37,10 +39,7 @@ export class CreateProductDto {
     stock: number;
 
     @ApiProperty({
-        example: [
-            'https://res.cloudinary.com/demo/image/upload/v1/shbash/product1.jpg',
-            'https://res.cloudinary.com/demo/image/upload/v1/shbash/product2.jpg',
-        ],
+        example: ['https://res.cloudinary.com/demo/image/upload/v1/shbash/product1.jpg'],
         description: 'Array of Cloudinary image URLs',
     })
     @IsArray()
@@ -54,4 +53,13 @@ export class CreateProductDto {
     })
     @IsUUID('4', { message: 'categoryId must be a valid UUID' })
     categoryId: string;
+
+    @ApiPropertyOptional({
+        enum: ProductStatus,
+        default: ProductStatus.DRAFT,
+        description: 'Product visibility status',
+    })
+    @IsOptional()
+    @IsEnum(ProductStatus)
+    status?: ProductStatus;
 }

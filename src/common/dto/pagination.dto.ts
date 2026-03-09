@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min, IsString } from 'class-validator';
+import { IsInt, IsOptional, Max, Min, IsString, IsBoolean } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class PaginationDto {
     @ApiPropertyOptional({ minimum: 1, default: 1 })
@@ -27,4 +28,15 @@ export class PaginationDto {
     @IsString()
     @IsOptional()
     search?: string;
+
+    @ApiPropertyOptional({ description: 'Filter by status (ACTIVE, DRAFT, ARCHIVED)' })
+    @IsString()
+    @IsOptional()
+    status?: string;
+
+    @ApiPropertyOptional({ description: 'Admin mode — bypass status filter' })
+    @IsOptional()
+    @Transform(({ value }) => value === 'true' || value === true)
+    @IsBoolean()
+    adminMode?: boolean;
 }

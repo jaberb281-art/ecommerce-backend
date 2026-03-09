@@ -1,4 +1,4 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common'; // 👈 added NestModule, MiddlewareConsumer
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
@@ -10,17 +10,22 @@ import { CartModule } from './cart/cart.module';
 import { OrdersModule } from './orders/orders.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { CategoriesModule } from './categories/categories.module';
-import { LoggingMiddleware } from './common/middleware/logging.middleware'; // 👈 added
+import { UsersModule } from './users/users.module';
+import { LoggingMiddleware } from './common/middleware/logging.middleware';
+import { CouponsModule } from './coupons/coupons.module';
+import { BadgesModule } from './badges/badges.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-
     ThrottlerModule.forRoot([
       {
         name: 'general',
         ttl: 60000,
-        limit: 100,
+        limit: 1000,
       },
       {
         name: 'auth',
@@ -28,25 +33,26 @@ import { LoggingMiddleware } from './common/middleware/logging.middleware'; // �
         limit: 10,
       },
     ]),
-
     PrismaModule,
     AuthModule,
     ProductsModule,
     CartModule,
     OrdersModule,
     CategoriesModule,
+    UsersModule,
+    CouponsModule,
+    BadgesModule,
+    NotificationsModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
+
   ],
 })
-export class AppModule implements NestModule { // 👈 added implements NestModule
+export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LoggingMiddleware).forRoutes('*'); // 👈 apply to all routes
+    consumer.apply(LoggingMiddleware).forRoutes('*');
   }
 }

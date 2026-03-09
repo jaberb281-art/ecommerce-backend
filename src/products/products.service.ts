@@ -22,6 +22,7 @@ export class ProductsService {
         stock: dto.stock,
         images: dto.images,
         categoryId: dto.categoryId,
+        status: dto.status,
       },
       include: { category: true },
     });
@@ -29,19 +30,23 @@ export class ProductsService {
 
   // -----------------------------------------------------------------------
   // FIND ALL — paginated, filterable by category, searchable by name
+  // Only returns ACTIVE products for storefront
+  // Admin can pass status param to see all
   // -----------------------------------------------------------------------
 
-  async findAll(paginationDto: PaginationDto) {
-    const { page = 1, limit = 10, categoryId, search } = paginationDto;
+  async findAll(paginationDto: PaginationDto & { status?: string; adminMode?: boolean }) {
+    const { page = 1, limit = 10, categoryId, search, adminMode } = paginationDto;
     const skip = (page - 1) * limit;
 
-    // Build filter dynamically — only include clauses that have values
     const where: Prisma.ProductWhereInput = {
+      // Only filter by ACTIVE for storefront — admin sees all
+      ...(!adminMode && { status: 'ACTIVE' }),
+      ...(paginationDto.status && { status: paginationDto.status as any }),
       ...(categoryId && { categoryId }),
       ...(search && {
         name: {
           contains: search,
-          mode: 'insensitive', // Case-insensitive search
+          mode: 'insensitive',
         },
       }),
     };
@@ -70,7 +75,6 @@ export class ProductsService {
       include: { category: true },
     });
 
-    // Return clean 404 instead of null body with 200 status
     if (!product) {
       throw new NotFoundException({
         code: 'PRODUCT_NOT_FOUND',
@@ -86,13 +90,10 @@ export class ProductsService {
   // -----------------------------------------------------------------------
 
   async update(id: string, dto: UpdateProductDto) {
-    // Verify product exists first — gives a clean 404 instead of Prisma P2025
     await this.findOne(id);
 
     return this.prisma.product.update({
       where: { id },
-      // Explicit field mapping — prevents accidental mass-assignment if
-      // DTO shape changes (e.g. someone adds an 'id' field to UpdateProductDto)
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
@@ -100,6 +101,7 @@ export class ProductsService {
         ...(dto.stock !== undefined && { stock: dto.stock }),
         ...(dto.images !== undefined && { images: dto.images }),
         ...(dto.categoryId !== undefined && { categoryId: dto.categoryId }),
+        ...(dto.status !== undefined && { status: dto.status as any }),
       },
       include: { category: true },
     });
@@ -110,7 +112,6 @@ export class ProductsService {
   // -----------------------------------------------------------------------
 
   async remove(id: string) {
-    // Verify product exists first — gives a clean 404 instead of Prisma P2025
     await this.findOne(id);
 
     return this.prisma.product.delete({
@@ -119,11 +120,48 @@ export class ProductsService {
   }
 
   // -----------------------------------------------------------------------
+  // BEST SELLERS — ranked by total units sold from completed orders
+  // -----------------------------------------------------------------------
+
+  async getBestSellers(limit = 10) {
+    const result = await this.prisma.orderItem.groupBy({
+      by: ['productId'],
+      where: {
+        order: {
+          status: { not: 'CANCELLED' },
+        },
+      },
+      _sum: { quantity: true },
+      orderBy: { _sum: { quantity: 'desc' } },
+      take: limit,
+    });
+
+    const productIds = result.map(r => r.productId)
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        id: { in: productIds },
+        status: 'ACTIVE', // only active products in best sellers
+      },
+      include: { category: true },
+    })
+
+    return productIds.map(id => {
+      const product = products.find(p => p.id === id)
+      const sales = result.find(r => r.productId === id)
+      return {
+        ...product,
+        unitsSold: sales?._sum?.quantity ?? 0,
+      }
+    }).filter(p => p.id) // filter out products that are no longer active
+  }
+
+  // -----------------------------------------------------------------------
   // PRIVATE HELPER — pagination response envelope
   // -----------------------------------------------------------------------
 
   private formatPaginatedResponse(
-    data: Product[],  // Typed with Prisma's generated Product type
+    data: Product[],
     totalItems: number,
     page: number,
     limit: number,

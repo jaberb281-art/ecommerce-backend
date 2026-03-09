@@ -17,11 +17,16 @@ model User {
   email     String   @unique
   password  String
   name      String?
+  phone     String?
+  username  String?  @unique
   role      Role     @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   cart      Cart?
   orders    Order[]
+  userBadges     UserBadge[]
+  userChallenges UserChallenge[]
+  notifications  Notification[]
 }
 
 model Category {
@@ -39,6 +44,7 @@ model Product {
   price       Float
   stock       Int         @default(0)
   images      String[]
+  status      ProductStatus @default(DRAFT)
   categoryId  String
   category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   cartItems   CartItem[]
@@ -74,8 +80,11 @@ model Order {
   userId         String
   items          OrderItem[]
   total          Float
+  discount       Float?     
+  couponId       String?
+  coupon         Coupon?     @relation(fields: [couponId], references: [id])
   status         OrderStatus @default(PENDING)
-  idempotencyKey String?     @unique // Prevents duplicate orders on client retry
+  idempotencyKey String?     @unique
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 }
@@ -93,7 +102,105 @@ model OrderItem {
 
 enum OrderStatus {
   PENDING
-  SHIPPED   // Added: intermediate state between PENDING and COMPLETED
-  COMPLETED
+  PROCESSING
+  SHIPPED
+  DELIVERED
   CANCELLED
+  COMPLETED
+}
+enum ProductStatus {
+  ACTIVE
+  DRAFT
+  ARCHIVED
+}
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+model Coupon {
+  id            String       @id @default(uuid())
+  code          String       @unique
+  discountType  DiscountType
+  discountValue Float
+  minOrderValue Float?
+  maxUses       Int?
+  usedCount     Int          @default(0)
+  expiresAt     DateTime?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  orders        Order[]
+}
+model Badge {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  description String?
+  imageUrl        String?
+  color       String?     @default("#000000")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  userBadges  UserBadge[]
+  challenges  Challenge[]
+}
+
+model UserBadge {
+  id         String   @id @default(uuid())
+  userId     String
+  badgeId    String
+  awardedAt  DateTime @default(now())
+  awardedBy  String?
+  note       String?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge      Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  @@unique([userId, badgeId])
+}
+
+enum ChallengeType {
+  BUY_PRODUCTS
+  SPEND_AMOUNT
+  PLACE_ORDERS
+}
+
+model Challenge {
+  id             String        @id @default(uuid())
+  name           String
+  description    String?
+  type           ChallengeType
+  target         Float
+  badgeId        String?
+  badge          Badge?        @relation(fields: [badgeId], references: [id])
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  userChallenges UserChallenge[]
+}
+
+model UserChallenge {
+  id          String    @id @default(uuid())
+  userId      String
+  challengeId String
+  progress    Float     @default(0)
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  @@unique([userId, challengeId])
+}
+enum NotificationType {
+  BADGE_AWARDED
+  CHALLENGE_COMPLETED
+  ORDER_UPDATE
+  GENERAL
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType @default(GENERAL)
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

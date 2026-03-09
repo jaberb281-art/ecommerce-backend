@@ -46,6 +46,14 @@ export class ProductsController {
   async findAll(@Query() paginationDto: PaginationDto) {
     return this.productsService.findAll(paginationDto);
   }
+  // -----------------------------------------------------------------------
+  // GET /products/best-sellers — Public
+  // -----------------------------------------------------------------------
+  @Get('best-sellers')
+  @ApiOperation({ summary: 'Get best selling products ranked by units sold' })
+  async getBestSellers(@Query('limit') limit?: string) {
+    return this.productsService.getBestSellers(limit ? parseInt(limit) : 10)
+  }
 
   // -----------------------------------------------------------------------
   // POST /products/upload-image — Admin only

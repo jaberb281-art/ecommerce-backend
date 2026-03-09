@@ -92,6 +92,18 @@ export class OrdersController {
     async getStats(): Promise<AdminStatsResponse> {
         return this.ordersService.getAdminStats();
     }
+    // -------------------------------------------------------------------------
+    // GET /orders/:id  — Get single order for current user
+    // Must be defined AFTER /orders/admin/* to avoid route collision
+    // -------------------------------------------------------------------------
+    @Get(':id')
+    @ApiOkResponse({ type: OrderResponseDto })
+    async getMyOrder(
+        @Request() req,
+        @Param('id') id: string,
+    ) {
+        return this.ordersService.getMyOrder(req.user.id, id);
+    }
 
     // -------------------------------------------------------------------------
     // PATCH /orders/:id/status  — Admin only

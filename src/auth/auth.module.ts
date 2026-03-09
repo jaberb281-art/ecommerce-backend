@@ -12,7 +12,7 @@ import type { StringValue } from 'ms';
   imports: [
     PrismaModule,
     ConfigModule, // Makes ConfigService available in this module
-    PassportModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
 
     // registerAsync ensures ConfigService is fully loaded before the JWT
     // secret is read — safe, and crashes loudly if JWT_SECRET is missing
