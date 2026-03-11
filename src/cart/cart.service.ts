@@ -26,7 +26,8 @@ export class CartService {
     }
 
     // -----------------------------------------------------------------------
-    // ADD TO CART
+    // ADD TO CART  (product page "Add to Cart" button)
+    // Increments quantity on top of whatever is already in the cart.
     // Fully atomic — wrapped in $transaction so the stock check, cart
     // creation, and item upsert all succeed or all fail together.
     // -----------------------------------------------------------------------
@@ -84,6 +85,78 @@ export class CartService {
                 update: {
                     quantity: newQuantity,
                 },
+                include: {
+                    product: { select: { id: true, name: true, price: true } },
+                },
+            });
+        });
+    }
+
+    // -----------------------------------------------------------------------
+    // UPDATE CART ITEM  (cart page +/- buttons)
+    // Sets the quantity to an EXACT value instead of incrementing.
+    // If quantity <= 0 the item is removed entirely.
+    // Fully atomic — same transaction pattern as addToCart.
+    // -----------------------------------------------------------------------
+
+    async updateCartItem(userId: string, productId: string, quantity: number) {
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Verify product exists and read live stock
+            const product = await tx.product.findUnique({
+                where: { id: productId },
+                select: { id: true, name: true, stock: true },
+            });
+
+            if (!product) {
+                throw new NotFoundException({
+                    code: 'PRODUCT_NOT_FOUND',
+                    message: `Product ${productId} not found`,
+                });
+            }
+
+            // 2. Find the cart — must already exist for an update
+            const cart = await tx.cart.findUnique({ where: { userId } });
+
+            if (!cart) {
+                throw new NotFoundException({
+                    code: 'CART_NOT_FOUND',
+                    message: 'Cart not found',
+                });
+            }
+
+            // 3. Find the cart item — must already exist for an update
+            const existingItem = await tx.cartItem.findUnique({
+                where: {
+                    cartId_productId: { cartId: cart.id, productId },
+                },
+            });
+
+            if (!existingItem) {
+                throw new NotFoundException({
+                    code: 'CART_ITEM_NOT_FOUND',
+                    message: 'Item not found in cart',
+                });
+            }
+
+            // 4. If quantity reaches 0 or below — remove the item entirely
+            if (quantity <= 0) {
+                return tx.cartItem.delete({
+                    where: { id: existingItem.id },
+                });
+            }
+
+            // 5. Validate exact quantity against live stock
+            if (quantity > product.stock) {
+                throw new BadRequestException({
+                    code: 'INSUFFICIENT_STOCK',
+                    message: `Cannot set quantity to ${quantity} for "${product.name}". Available stock: ${product.stock}`,
+                });
+            }
+
+            // 6. Set the exact quantity
+            return tx.cartItem.update({
+                where: { id: existingItem.id },
+                data: { quantity },
                 include: {
                     product: { select: { id: true, name: true, price: true } },
                 },

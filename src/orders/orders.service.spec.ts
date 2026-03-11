@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersService } from './orders.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CouponsService } from '../coupons/coupons.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import { DiscountType, OrderStatus } from '@prisma/client';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -13,6 +14,7 @@ const mockTx = {
     cartItem: { deleteMany: jest.fn() },
     order: { findUnique: jest.fn(), create: jest.fn() },
     product: { findUnique: jest.fn(), update: jest.fn() },
+    coupon: { update: jest.fn() },
 };
 
 const mockPrismaService = {
@@ -25,10 +27,14 @@ const mockPrismaService = {
         count: jest.fn(),
         aggregate: jest.fn(),
     },
+    coupon: { findUnique: jest.fn() },
     product: { count: jest.fn() },
     cartItem: { deleteMany: jest.fn() },
+    user: { count: jest.fn() },
     $transaction: jest.fn(),
 };
+
+const mockCouponsService = {};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -63,6 +69,18 @@ const mockOrder = {
     createdAt: new Date(),
 };
 
+const mockCoupon = {
+    id: 'coupon-123',
+    code: 'SAVE10',
+    discountType: DiscountType.PERCENTAGE,
+    discountValue: 10,
+    minOrderValue: null,
+    maxUses: null,
+    usedCount: 0,
+    expiresAt: null,
+    isActive: true,
+};
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -75,6 +93,7 @@ describe('OrdersService', () => {
             providers: [
                 OrdersService,
                 { provide: PrismaService, useValue: mockPrismaService },
+                { provide: CouponsService, useValue: mockCouponsService },
             ],
         }).compile();
 
@@ -87,7 +106,7 @@ describe('OrdersService', () => {
     });
 
     // -------------------------------------------------------------------------
-    // CHECKOUT
+    // CHECKOUT — base cases
     // -------------------------------------------------------------------------
 
     describe('checkout()', () => {
@@ -125,7 +144,6 @@ describe('OrdersService', () => {
             mockPrismaService.order.findUnique.mockResolvedValue(null);
             mockPrismaService.cart.findUnique.mockResolvedValue(mockCart);
 
-            // Full tx mock including product.findUnique and product.update
             mockPrismaService.$transaction.mockImplementation(async (cb: any) => {
                 mockTx.product.update.mockResolvedValue(mockProduct);
                 mockTx.order.create.mockResolvedValue(mockOrder);
@@ -136,6 +154,127 @@ describe('OrdersService', () => {
             await service.checkout('user-123', 'new-key');
 
             expect(mockPrismaService.$transaction).toHaveBeenCalled();
+        });
+    });
+
+    // -------------------------------------------------------------------------
+    // CHECKOUT — coupon cases
+    // -------------------------------------------------------------------------
+
+    describe('checkout() with coupon', () => {
+        beforeEach(() => {
+            mockPrismaService.order.findUnique.mockResolvedValue(null);
+            mockPrismaService.cart.findUnique.mockResolvedValue(mockCart);
+        });
+
+        it('should apply percentage coupon and decrement total', async () => {
+            mockPrismaService.coupon.findUnique.mockResolvedValue(mockCoupon);
+
+            // subtotal = 6.5 * 2 = 13, 10% off = 1.3, discounted total = 11.7
+            const discountedOrder = { ...mockOrder, total: 11.7 };
+
+            mockPrismaService.$transaction.mockImplementation(async (cb: any) => {
+                mockTx.product.update.mockResolvedValue(mockProduct);
+                mockTx.order.create.mockResolvedValue(discountedOrder);
+                mockTx.coupon.update.mockResolvedValue({ ...mockCoupon, usedCount: 1 });
+                mockTx.cartItem.deleteMany.mockResolvedValue({ count: 1 });
+                return cb(mockTx);
+            });
+
+            const result = await service.checkout('user-123', undefined, {
+                couponId: 'coupon-123',
+            });
+
+            expect(result.total).toBe(11.7);
+            expect(mockTx.coupon.update).toHaveBeenCalledWith({
+                where: { id: 'coupon-123' },
+                data: { usedCount: { increment: 1 } },
+            });
+        });
+
+        it('should apply flat discount coupon', async () => {
+            const flatCoupon = {
+                ...mockCoupon,
+                id: 'coupon-flat',
+                discountType: DiscountType.FIXED,
+                discountValue: 5,
+            };
+            mockPrismaService.coupon.findUnique.mockResolvedValue(flatCoupon);
+
+            // subtotal = 13, flat $5 off = 8
+            const discountedOrder = { ...mockOrder, total: 8 };
+
+            mockPrismaService.$transaction.mockImplementation(async (cb: any) => {
+                mockTx.product.update.mockResolvedValue(mockProduct);
+                mockTx.order.create.mockResolvedValue(discountedOrder);
+                mockTx.coupon.update.mockResolvedValue({ ...flatCoupon, usedCount: 1 });
+                mockTx.cartItem.deleteMany.mockResolvedValue({ count: 1 });
+                return cb(mockTx);
+            });
+
+            const result = await service.checkout('user-123', undefined, {
+                couponId: 'coupon-flat',
+            });
+
+            expect(result.total).toBe(8);
+        });
+
+        it('should throw if coupon is inactive', async () => {
+            mockPrismaService.coupon.findUnique.mockResolvedValue({
+                ...mockCoupon,
+                isActive: false,
+            });
+
+            await expect(
+                service.checkout('user-123', undefined, { couponId: 'coupon-123' }),
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should throw if coupon is expired', async () => {
+            mockPrismaService.coupon.findUnique.mockResolvedValue({
+                ...mockCoupon,
+                expiresAt: new Date('2020-01-01'),
+            });
+
+            await expect(
+                service.checkout('user-123', undefined, { couponId: 'coupon-123' }),
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should throw if coupon usage limit is reached', async () => {
+            mockPrismaService.coupon.findUnique.mockResolvedValue({
+                ...mockCoupon,
+                maxUses: 5,
+                usedCount: 5,
+            });
+
+            await expect(
+                service.checkout('user-123', undefined, { couponId: 'coupon-123' }),
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should throw if order total is below minOrderValue', async () => {
+            mockPrismaService.coupon.findUnique.mockResolvedValue({
+                ...mockCoupon,
+                minOrderValue: 50, // subtotal is only 13
+            });
+
+            await expect(
+                service.checkout('user-123', undefined, { couponId: 'coupon-123' }),
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should NOT increment usedCount if no coupon provided', async () => {
+            mockPrismaService.$transaction.mockImplementation(async (cb: any) => {
+                mockTx.product.update.mockResolvedValue(mockProduct);
+                mockTx.order.create.mockResolvedValue(mockOrder);
+                mockTx.cartItem.deleteMany.mockResolvedValue({ count: 1 });
+                return cb(mockTx);
+            });
+
+            await service.checkout('user-123');
+
+            expect(mockTx.coupon.update).not.toHaveBeenCalled();
         });
     });
 
@@ -244,6 +383,7 @@ describe('OrdersService', () => {
             mockPrismaService.order.aggregate.mockResolvedValue({ _sum: { total: 150.5 } });
             mockPrismaService.order.count.mockResolvedValue(10);
             mockPrismaService.product.count.mockResolvedValue(25);
+            mockPrismaService.user.count.mockResolvedValue(5);
 
             const result = await service.getAdminStats();
 
@@ -251,6 +391,7 @@ describe('OrdersService', () => {
                 totalRevenue: 150.5,
                 totalOrders: 10,
                 totalProducts: 25,
+                totalUsers: 5,
             });
         });
 
@@ -258,6 +399,7 @@ describe('OrdersService', () => {
             mockPrismaService.order.aggregate.mockResolvedValue({ _sum: { total: null } });
             mockPrismaService.order.count.mockResolvedValue(0);
             mockPrismaService.product.count.mockResolvedValue(0);
+            mockPrismaService.user.count.mockResolvedValue(0);
 
             const result = await service.getAdminStats();
 

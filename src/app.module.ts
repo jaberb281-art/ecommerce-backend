@@ -16,6 +16,8 @@ import { CouponsModule } from './coupons/coupons.module';
 import { BadgesModule } from './badges/badges.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { AddressesModule } from './addresses/addresses.module';
+
 
 
 @Module({
@@ -44,6 +46,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     BadgesModule,
     NotificationsModule,
     AnalyticsModule,
+    AddressesModule,
   ],
   controllers: [AppController],
   providers: [

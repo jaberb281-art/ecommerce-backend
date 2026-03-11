@@ -29,7 +29,7 @@ export class CategoriesService {
         }
 
         return this.prisma.category.create({
-            data: { name: dto.name }, // Explicit mapping — no mass-assignment
+            data: { name: dto.name, ...(dto.image && { image: dto.image }) },
         });
     }
 
@@ -109,7 +109,10 @@ export class CategoriesService {
 
         return this.prisma.category.update({
             where: { id },
-            data: { ...(dto.name && { name: dto.name }) },
+            data: {
+                ...(dto.name && { name: dto.name }),
+                ...(dto.image !== undefined && { image: dto.image }),
+            },
         });
     }
 

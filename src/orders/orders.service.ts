@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { CouponsService } from '../coupons/coupons.service';
 
 // ---------------------------------------------------------------------------
 // DTOs
@@ -18,6 +19,14 @@ export interface PaginationOptions {
 
 export interface UpdateStatusDto {
     status: OrderStatus;
+}
+
+export interface CheckoutOptions {
+    couponId?: string;
+    couponCode?: string;
+    shippingMethod?: string;
+    paymentMethod?: string;
+    addressId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -41,7 +50,7 @@ interface AdminStatsResponse {
     totalRevenue: number;
     totalOrders: number;
     totalProducts: number;
-    totalUsers: number;  // ← dashboard needs this
+    totalUsers: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -52,13 +61,16 @@ interface AdminStatsResponse {
 export class OrdersService {
     private readonly logger = new Logger(OrdersService.name);
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private couponsService: CouponsService,
+    ) { }
 
     // -----------------------------------------------------------------------
     // CHECKOUT
     // -----------------------------------------------------------------------
 
-    async checkout(userId: string, idempotencyKey?: string) {
+    async checkout(userId: string, idempotencyKey?: string, options: CheckoutOptions = {}) {
         this.logger.log(`Checkout started — userId: ${userId}`);
 
         // --- Idempotency: return existing order if key was already processed ---
@@ -88,28 +100,97 @@ export class OrdersService {
             });
         }
 
+        // --- Validate address belongs to this user ---
+        if (options.addressId) {
+            const address = await this.prisma.address.findUnique({
+                where: { id: options.addressId },
+            });
+            if (!address || address.userId !== userId) {
+                throw new BadRequestException({
+                    code: 'INVALID_ADDRESS',
+                    message: 'Invalid delivery address',
+                });
+            }
+        }
+
+        // --- Validate coupon BEFORE the transaction (throws if invalid) ---
+        let couponDiscount = 0;
+        let validatedCouponId: string | undefined;
+
+        // Support lookup by couponId or couponCode
+        const couponLookup = options.couponId
+            ? { id: options.couponId }
+            : options.couponCode
+                ? { code: options.couponCode }
+                : null;
+
+        if (couponLookup) {
+            const coupon = await this.prisma.coupon.findUnique({
+                where: couponLookup as any,
+            });
+
+            if (!coupon || !coupon.isActive) {
+                throw new BadRequestException({
+                    code: 'INVALID_COUPON',
+                    message: 'Invalid or inactive coupon',
+                });
+            }
+
+            if (coupon.expiresAt && new Date() > coupon.expiresAt) {
+                throw new BadRequestException({
+                    code: 'COUPON_EXPIRED',
+                    message: 'Coupon has expired',
+                });
+            }
+
+            if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
+                throw new BadRequestException({
+                    code: 'COUPON_EXHAUSTED',
+                    message: 'Coupon usage limit reached',
+                });
+            }
+
+            // Calculate subtotal to check minOrderValue
+            const subtotal = cart.items.reduce(
+                (sum, item) => sum + item.product.price * item.quantity,
+                0,
+            );
+
+            if (coupon.minOrderValue && subtotal < coupon.minOrderValue) {
+                throw new BadRequestException({
+                    code: 'ORDER_TOO_SMALL',
+                    message: `Minimum order value is $${coupon.minOrderValue}`,
+                });
+            }
+
+            // Calculate discount amount
+            couponDiscount =
+                coupon.discountType === 'PERCENTAGE'
+                    ? (subtotal * coupon.discountValue) / 100
+                    : coupon.discountValue;
+
+            couponDiscount = Math.min(couponDiscount, subtotal);
+            validatedCouponId = coupon.id;
+        }
+
         // --- Run everything atomically ---
         const order = await this.prisma.$transaction(async (tx) => {
             let total = 0;
             const snapshots: { productId: string; quantity: number; price: number; name: string }[] = [];
 
-            // A. Atomic stock check + decrement in one DB operation per item.
-            //    The `where: { stock: { gte: quantity } }` clause means the update
-            //    only succeeds if stock is sufficient — no TOCTOU race condition.
+            // A. Atomic stock check + decrement per item
             for (const item of cart.items) {
                 let updated;
                 try {
                     updated = await tx.product.update({
                         where: {
                             id: item.productId,
-                            stock: { gte: item.quantity }, // atomic guard
+                            stock: { gte: item.quantity },
                         },
                         data: { stock: { decrement: item.quantity } },
                         select: { id: true, name: true, price: true, stock: true },
                     });
                 } catch {
-                    // Prisma throws P2025 (record not found) when the where clause
-                    // doesn't match — i.e. stock was insufficient.
                     const product = await tx.product.findUnique({
                         where: { id: item.productId },
                         select: { name: true, stock: true },
@@ -123,23 +204,27 @@ export class OrdersService {
                     });
                 }
 
-                // Snapshot the price at time of purchase (inside the transaction)
                 snapshots.push({
                     productId: item.productId,
                     quantity: item.quantity,
-                    price: updated.price, // fresh price from DB, not stale cart data
+                    price: updated.price,
                     name: updated.name,
                 });
 
                 total += updated.price * item.quantity;
             }
 
-            // B. Create the order with snapshotted prices and accurate total
+            // B. Apply coupon discount to total
+            const discountedTotal = Math.max(total - couponDiscount, 0);
+
+            // C. Create the order with discounted total and coupon reference
             const newOrder = await tx.order.create({
                 data: {
                     userId,
-                    total,
+                    total: discountedTotal,
                     ...(idempotencyKey ? { idempotencyKey } : {}),
+                    ...(validatedCouponId ? { couponId: validatedCouponId } : {}),
+                    ...(options.addressId ? { addressId: options.addressId } : {}),
                     items: {
                         create: snapshots.map(({ productId, quantity, price }) => ({
                             productId,
@@ -151,11 +236,20 @@ export class OrdersService {
                 include: { items: true },
             });
 
-            // C. Clear the cart (same transaction — no ghost carts on crash)
+            // D. Increment coupon usedCount inside the same transaction
+            if (validatedCouponId) {
+                await tx.coupon.update({
+                    where: { id: validatedCouponId },
+                    data: { usedCount: { increment: 1 } },
+                });
+                this.logger.log(`Coupon ${validatedCouponId} usedCount incremented`);
+            }
+
+            // E. Clear the cart
             await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
 
             this.logger.log(
-                `Order ${newOrder.id} created for user ${userId} — total: ${total}`,
+                `Order ${newOrder.id} created for user ${userId} — total: ${discountedTotal} (discount: ${couponDiscount}) — shipping: ${options.shippingMethod ?? 'standard'} — payment: ${options.paymentMethod ?? 'cash'}`,
             );
 
             return newOrder;
@@ -192,6 +286,7 @@ export class OrdersService {
             },
         };
     }
+
     // -----------------------------------------------------------------------
     // GET SINGLE ORDER — for current user
     // -----------------------------------------------------------------------
@@ -232,11 +327,20 @@ export class OrdersService {
                 include: {
                     items: {
                         include: {
-                            product: { select: { id: true, name: true, price: true } },
+                            product: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    price: true,
+                                    images: true,
+                                    category: { select: { name: true } },
+                                },
+                            },
                         },
                     },
-                    // Explicit select — safe even if sensitive fields are added to User later
-                    user: { select: { id: true, email: true } },
+                    user: { select: { id: true, name: true, email: true } },
+                    coupon: { select: { id: true, code: true, discountType: true, discountValue: true } },
+                    address: true,
                 },
                 orderBy: { createdAt: 'desc' },
                 skip,
@@ -261,7 +365,6 @@ export class OrdersService {
     // -----------------------------------------------------------------------
 
     async updateStatus(orderId: string, status: OrderStatus) {
-        // Use NotFoundException (404) — not BadRequestException (400) — for missing resource
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },
         });
@@ -273,7 +376,6 @@ export class OrdersService {
             });
         }
 
-        // Enforce state machine — prevent illegal transitions
         const allowed = ALLOWED_TRANSITIONS[order.status as OrderStatus] ?? [];
         if (!allowed.includes(status)) {
             throw new BadRequestException({
@@ -283,13 +385,11 @@ export class OrdersService {
             });
         }
 
-        this.logger.log(
-            `Order ${orderId} status: ${order.status} → ${status}`,
-        );
+        this.logger.log(`Order ${orderId} status: ${order.status} → ${status}`);
 
         return this.prisma.order.update({
             where: { id: orderId },
-            data: { status }, // No cast needed — status is properly typed as OrderStatus
+            data: { status },
         });
     }
 
@@ -298,7 +398,6 @@ export class OrdersService {
     // -----------------------------------------------------------------------
 
     async getAdminStats(): Promise<AdminStatsResponse> {
-        // Run all three queries in parallel — no reason to wait sequentially
         const [revenueResult, orderCount, productCount, userCount] = await Promise.all([
             this.prisma.order.aggregate({
                 _sum: { total: true },

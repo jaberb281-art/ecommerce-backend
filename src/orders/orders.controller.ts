@@ -15,10 +15,50 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role, OrderStatus } from '@prisma/client';
-import { ApiBearerAuth, ApiTags, ApiOkResponse, ApiQuery, ApiHeader } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiOkResponse, ApiQuery, ApiHeader, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderResponseDto } from './dto/order-response.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { AdminStatsResponse } from './orders.types';
+import { IsOptional, IsString, IsEnum } from 'class-validator';
+
+export enum ShippingMethod {
+    EXPRESS = 'express',
+    STANDARD = 'standard',
+    PICKUP = 'pickup',
+}
+
+export enum PaymentMethod {
+    CREDIT = 'credit',
+    APPLEPAY = 'applepay',
+    CASH = 'cash',
+}
+
+export class CheckoutDto {
+    @ApiPropertyOptional({ enum: ShippingMethod, example: 'standard' })
+    @IsOptional()
+    @IsEnum(ShippingMethod)
+    shippingMethod?: ShippingMethod;
+
+    @ApiPropertyOptional({ enum: PaymentMethod, example: 'cash' })
+    @IsOptional()
+    @IsEnum(PaymentMethod)
+    paymentMethod?: PaymentMethod;
+
+    @ApiPropertyOptional({ example: 'coupon-uuid' })
+    @IsOptional()
+    @IsString()
+    couponId?: string;
+
+    @ApiPropertyOptional({ example: 'SAVE10' })
+    @IsOptional()
+    @IsString()
+    couponCode?: string;
+
+    @ApiPropertyOptional({ example: 'address-uuid' })
+    @IsOptional()
+    @IsString()
+    addressId?: string;
+}
 
 @ApiTags('orders')
 @ApiBearerAuth()
@@ -29,7 +69,6 @@ export class OrdersController {
 
     // -------------------------------------------------------------------------
     // POST /orders/checkout
-    // Optional idempotency key header prevents duplicate orders on client retry
     // -------------------------------------------------------------------------
     @Post('checkout')
     @ApiOkResponse({ type: OrderResponseDto })
@@ -41,8 +80,15 @@ export class OrdersController {
     async checkout(
         @Request() req,
         @Headers('x-idempotency-key') idempotencyKey?: string,
+        @Body() dto: CheckoutDto = {},
     ) {
-        return this.ordersService.checkout(req.user.id, idempotencyKey);
+        return this.ordersService.checkout(req.user.id, idempotencyKey, {
+            couponId: dto.couponId,
+            couponCode: dto.couponCode,
+            shippingMethod: dto.shippingMethod,
+            paymentMethod: dto.paymentMethod,
+            addressId: dto.addressId,
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -65,7 +111,6 @@ export class OrdersController {
 
     // -------------------------------------------------------------------------
     // GET /orders/admin/all?page=1&limit=20  — Admin only
-    // Must be defined BEFORE /orders/:id to avoid route collision
     // -------------------------------------------------------------------------
     @Get('admin/all')
     @Roles(Role.ADMIN)
@@ -92,9 +137,9 @@ export class OrdersController {
     async getStats(): Promise<AdminStatsResponse> {
         return this.ordersService.getAdminStats();
     }
+
     // -------------------------------------------------------------------------
-    // GET /orders/:id  — Get single order for current user
-    // Must be defined AFTER /orders/admin/* to avoid route collision
+    // GET /orders/:id
     // -------------------------------------------------------------------------
     @Get(':id')
     @ApiOkResponse({ type: OrderResponseDto })

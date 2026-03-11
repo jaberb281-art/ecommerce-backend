@@ -24,15 +24,34 @@ model User {
   updatedAt DateTime @updatedAt
   cart      Cart?
   orders    Order[]
+  addresses      Address[]
   userBadges     UserBadge[]
   userChallenges UserChallenge[]
   notifications  Notification[]
+}
+
+model Address {
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  fullName   String
+  phone      String
+  street     String
+  city       String
+  state      String
+  zip        String
+  country    String
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  orders     Order[]
 }
 
 model Category {
   id        String    @id @default(uuid())
   name      String    @unique
   products  Product[]
+  image String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
@@ -80,9 +99,11 @@ model Order {
   userId         String
   items          OrderItem[]
   total          Float
-  discount       Float?     
+  discount       Float?
   couponId       String?
   coupon         Coupon?     @relation(fields: [couponId], references: [id])
+  addressId      String?
+  address        Address?    @relation(fields: [addressId], references: [id])
   status         OrderStatus @default(PENDING)
   idempotencyKey String?     @unique
   createdAt      DateTime    @default(now())
@@ -96,8 +117,7 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id])
   productId String
   quantity  Int
-  price     Float // Stores the price at the moment of purchase
-   
+  price     Float
 }
 
 enum OrderStatus {
@@ -132,11 +152,12 @@ model Coupon {
   updatedAt     DateTime     @updatedAt
   orders        Order[]
 }
+
 model Badge {
   id          String      @id @default(uuid())
   name        String      @unique
   description String?
-  imageUrl        String?
+  imageUrl    String?
   color       String?     @default("#000000")
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -187,6 +208,7 @@ model UserChallenge {
   challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
   @@unique([userId, challengeId])
 }
+
 enum NotificationType {
   BADGE_AWARDED
   CHALLENGE_COMPLETED
