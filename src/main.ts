@@ -3,24 +3,37 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // CORS — locked to specific origins in production via environment variable.
-  // Set ALLOWED_ORIGIN=https://yourfrontend.com in your .env for production.
-  // Falls back to all origins in development.
+  const allowedOrigins = [
+    'http://localhost:3002',
+    'http://localhost:3001',
+    'https://ecommerce-admin-production-7e7b.up.railway.app',
+    // Add storefront URL here once deployed
+  ]
+
   app.enableCors({
-    origin: ['http://localhost:3002', 'http://localhost:3001'],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true)
+      if (allowedOrigins.some(o => origin.startsWith(o.replace('https://', '').replace('http://', '')))) {
+        return callback(null, true)
+      }
+      // Also allow any railway.app subdomain for flexibility
+      if (origin.endsWith('.railway.app') || origin.endsWith('.up.railway.app')) {
+        return callback(null, true)
+      }
+      if (origin.endsWith('.vercel.app')) {
+        return callback(null, true)
+      }
+      callback(new Error('Not allowed by CORS'))
+    },
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-idempotency-key'],
     credentials: true,
   });
 
-  // Global validation pipe:
-  // - whitelist: strips any fields not in the DTO silently
-  // - forbidNonWhitelisted: throws 400 if unknown fields are sent
-  // - transform: enables @Transform decorators and auto type coercion
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -29,19 +42,16 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger
   const config = new DocumentBuilder()
-    .setTitle('Tesla E-Commerce API')
-    .setDescription('Test API endpoints here')
+    .setTitle('Shbash E-Commerce API')
+    .setDescription('API endpoints')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
-
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  await app.listen(3000);
-  console.log('🚀 Server running at http://localhost:3000');
-  console.log('📖 Swagger docs at http://localhost:3000/api');
+  await app.listen(process.env.PORT || 3000);
+  console.log(`🚀 Server running on port ${process.env.PORT || 3000}`);
 }
 bootstrap();
