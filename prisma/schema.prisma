@@ -68,7 +68,6 @@ model Product {
   category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   cartItems   CartItem[]
   orderItems  OrderItem[]
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -128,11 +127,13 @@ enum OrderStatus {
   CANCELLED
   COMPLETED
 }
+
 enum ProductStatus {
   ACTIVE
   DRAFT
   ARCHIVED
 }
+
 enum DiscountType {
   PERCENTAGE
   FIXED
@@ -225,4 +226,29 @@ model Notification {
   read      Boolean          @default(false)
   createdAt DateTime         @default(now())
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ── Events (Pop-ups, Exhibitions, Mall appearances) ──────────────────────────
+
+enum EventStatus {
+  UPCOMING
+  ONGOING
+  PAST
+  CANCELLED
+}
+
+model Event {
+  id          String      @id @default(uuid())
+  title       String
+  description String?
+  location    String
+  venue       String?
+  city        String      @default("Bahrain")
+  startDate   DateTime
+  endDate     DateTime?
+  image       String?
+  status      EventStatus @default(UPCOMING)
+  isPublished Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }

@@ -17,8 +17,7 @@ import { BadgesModule } from './badges/badges.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AddressesModule } from './addresses/addresses.module';
-
-
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -47,11 +46,11 @@ import { AddressesModule } from './addresses/addresses.module';
     NotificationsModule,
     AnalyticsModule,
     AddressesModule,
+    EventsModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-
   ],
 })
 export class AppModule implements NestModule {
