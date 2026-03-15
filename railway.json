@@ -4,7 +4,7 @@
         "buildCommand": "npx prisma generate && npm run build"
     },
     "deploy": {
-        "startCommand": "node dist/src/main || node dist/main",
+        "startCommand": "[ -f dist/src/main.js ] && node dist/src/main.js || node dist/main.js",
         "restartPolicyType": "ON_FAILURE"
     }
 }
