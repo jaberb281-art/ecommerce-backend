@@ -3,6 +3,7 @@
         "buildCommand": "npm ci && npx prisma generate && npm run build"
     },
     "deploy": {
-        "startCommand": "npx prisma generate && npm run build && npm run start:prod"
+        "startCommand": "node dist/main",
+        "restartPolicyType": "ON_FAILURE"
     }
 }
