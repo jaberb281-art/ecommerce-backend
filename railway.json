@@ -1,1 +1,8 @@
-{"build":{"buildCommand":"npm ci && npm run build"},"deploy":{"startCommand":"node dist/main"}}
+{
+    "build": {
+        "buildCommand": "npm ci && npx prisma generate && npm run build"
+    },
+    "deploy": {
+        "startCommand": "npm run start:prod"
+    }
+}
