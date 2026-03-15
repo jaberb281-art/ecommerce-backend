@@ -1,1 +1,1 @@
-{"build":{"buildCommand":"npm run build"},"deploy":{"startCommand":"npm run build && node dist/main"}}
+{"build":{"buildCommand":"npm run build"},"deploy":{"startCommand":"npm run build && node /app/dist/main"}}
