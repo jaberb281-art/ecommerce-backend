@@ -9,14 +9,13 @@ async function bootstrap() {
   // Global API prefix
   app.setGlobalPrefix('api');
 
-  // Allowed origins
   const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:3002',
     'https://ecommerce-admin-production-7e7b.up.railway.app',
     'https://ecommerce-storefront-production.up.railway.app',
-    'https://ecommerce-frontend-production-46f8.up.railway.app',
+    'https://ecommerce-backend-production-44ff.up.railway.app',
   ];
 
   // Enable CORS
