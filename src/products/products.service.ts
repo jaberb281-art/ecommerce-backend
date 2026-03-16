@@ -35,7 +35,13 @@ export class ProductsService {
   // -----------------------------------------------------------------------
 
   async findAll(paginationDto: PaginationDto & { status?: string; adminMode?: boolean }) {
-    const { page = 1, limit = 10, categoryId, search, adminMode } = paginationDto;
+    // Query params may arrive as strings if the global ValidationPipe doesn't enable transform.
+    const rawPage: any = (paginationDto as any).page ?? 1;
+    const rawLimit: any = (paginationDto as any).limit ?? 10;
+    const page = Math.max(1, Number(rawPage) || 1);
+    const limit = Math.min(50, Math.max(1, Number(rawLimit) || 10));
+
+    const { categoryId, search, adminMode } = paginationDto;
     const skip = (page - 1) * limit;
 
     const where: Prisma.ProductWhereInput = {
