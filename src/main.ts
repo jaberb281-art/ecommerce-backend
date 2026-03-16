@@ -38,14 +38,10 @@ async function bootstrap() {
   });
 
   // Global validation
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
-
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
   // Swagger setup
   const config = new DocumentBuilder()
     .setTitle('Shbash E-Commerce API')
