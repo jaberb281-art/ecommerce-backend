@@ -16,6 +16,7 @@ async function bootstrap() {
     'http://localhost:3002',
     'https://ecommerce-admin-production-7e7b.up.railway.app',
     'https://ecommerce-storefront-production.up.railway.app',
+    'https://ecommerce-frontend-production-46f8.up.railway.app',
   ];
 
   // Enable CORS
