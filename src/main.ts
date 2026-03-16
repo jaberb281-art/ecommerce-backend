@@ -9,19 +9,34 @@ async function bootstrap() {
   // Global API prefix
   app.setGlobalPrefix('api');
 
+  // Allowed origins
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'https://ecommerce-admin-production-7e7b.up.railway.app',
+    'https://ecommerce-storefront-production.up.railway.app',
+  ];
+
   // Enable CORS
   app.enableCors({
-    origin: [
-      'http://localhost:3001',
-      'http://localhost:3002',
-      'https://ecommerce-admin-production-7e7b.up.railway.app',
-    ],
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked for origin: ${origin}`), false);
+      }
+    },
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-idempotency-key'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'x-idempotency-key',
+    ],
     credentials: true,
   });
 
-  // Global validation pipe
+  // Global validation
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -30,7 +45,7 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger configuration
+  // Swagger setup
   const config = new DocumentBuilder()
     .setTitle('Shbash E-Commerce API')
     .setDescription('API endpoints')
@@ -41,8 +56,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  // Railway requires using the provided PORT
-  const port = process.env.PORT || 3000;
+  // Railway requires PORT
+  const port = process.env.PORT || 8080;
 
   await app.listen(port, '0.0.0.0');
 
