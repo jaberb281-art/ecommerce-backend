@@ -65,7 +65,6 @@ export class AuthService {
   async register(registerDto: RegisterDto) {
     const { email, password, name, phone, username } = registerDto;
 
-    // Check existing email
     const existingEmail = await this.prisma.user.findUnique({
       where: { email },
     });
@@ -77,7 +76,6 @@ export class AuthService {
       });
     }
 
-    // Check existing username
     if (username) {
       const existingUsername = await this.prisma.user.findUnique({
         where: { username },
@@ -124,17 +122,15 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        username: true,
-        role: true,
-        createdAt: true,
-      },
+      // FIX: Added 'include' to fetch badges along with user data
+      include: {
+        userBadges: {
+          include: {
+            badge: true // Fetches the actual badge details like name and icon
+          }
+        }
+      }
     });
-
 
     if (!user) {
       throw new NotFoundException({
@@ -143,8 +139,11 @@ export class AuthService {
       });
     }
 
-    return user;
+    // Remove password before returning
+    const { password, ...result } = user;
+    return result;
   }
+
   async updateProfile(userId: string, data: { name?: string; phone?: string }) {
     const user = await this.prisma.user.update({
       where: { id: userId },
@@ -152,17 +151,17 @@ export class AuthService {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.phone !== undefined && { phone: data.phone }),
       },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        username: true,
-        role: true,
-        createdAt: true,
-      },
+      // FIX: Also include badges here so the frontend updates immediately after a save
+      include: {
+        userBadges: {
+          include: {
+            badge: true
+          }
+        }
+      }
     });
 
-    return user;
+    const { password, ...result } = user;
+    return result;
   }
 }
