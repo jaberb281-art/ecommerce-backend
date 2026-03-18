@@ -18,6 +18,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { EventsModule } from './events/events.module';
+// import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -47,10 +48,16 @@ import { EventsModule } from './events/events.module';
     AnalyticsModule,
     AddressesModule,
     EventsModule,
+    // PaymentsModule,
+
   ],
   controllers: [AppController],
   providers: [
     AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard, // This activates the Throttler limits you set above
+    },
   ],
 })
 export class AppModule implements NestModule {

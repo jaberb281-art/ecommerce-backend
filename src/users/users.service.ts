@@ -7,8 +7,15 @@ export class UsersService {
     constructor(private prisma: PrismaService) { }
 
     async findAll(dto: GetUsersDto) {
-        const { page, limit } = dto;
-        const skip = (page - 1) * limit;
+        // 1. Add strict defaults to prevent 'undefined' values
+        const page = Number(dto.page) || 1;
+        const limit = Number(dto.limit) || 10;
+
+        // 2. Ensure skip is never negative
+        const skip = Math.max((page - 1) * limit, 0);
+
+        // 3. Debug log to see exactly what the backend is receiving
+        console.log(`[UsersService] Fetching page ${page} with limit ${limit}`);
 
         const [users, total] = await this.prisma.$transaction([
             this.prisma.user.findMany({
@@ -21,7 +28,7 @@ export class UsersService {
                     email: true,
                     role: true,
                     createdAt: true,
-                    _count: { select: { orders: true } }, // orderCount efficiently
+                    _count: { select: { orders: true } },
                 },
             }),
             this.prisma.user.count(),
@@ -31,7 +38,7 @@ export class UsersService {
             data: users.map((u) => ({
                 ...u,
                 orderCount: u._count.orders,
-                _count: undefined, // strip internal field
+                _count: undefined,
             })),
             meta: {
                 total,
