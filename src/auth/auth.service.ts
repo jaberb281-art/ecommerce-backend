@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { MailService } from '../modules/mails/mail.service'; // 1. Import the new service
 import * as bcrypt from 'bcrypt';
 
 export interface LoginDto {
@@ -30,6 +31,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private mailService: MailService, // 2. Inject MailService
   ) { }
 
   async login(loginDto: LoginDto) {
@@ -111,6 +113,14 @@ export class AuthService {
       },
     });
 
+    // 3. Trigger the Welcome Email
+    try {
+      await this.mailService.sendWelcomeEmail(user);
+    } catch (error) {
+      // We log the error but don't stop the registration process
+      console.error('Failed to send welcome email:', error);
+    }
+
     const payload = { sub: user.id, email: user.email, role: user.role };
 
     return {
@@ -122,11 +132,10 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      // FIX: Added 'include' to fetch badges along with user data
       include: {
         userBadges: {
           include: {
-            badge: true // Fetches the actual badge details like name and icon
+            badge: true
           }
         }
       }
@@ -139,7 +148,6 @@ export class AuthService {
       });
     }
 
-    // Remove password before returning
     const { password, ...result } = user;
     return result;
   }
@@ -151,7 +159,6 @@ export class AuthService {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.phone !== undefined && { phone: data.phone }),
       },
-      // FIX: Also include badges here so the frontend updates immediately after a save
       include: {
         userBadges: {
           include: {

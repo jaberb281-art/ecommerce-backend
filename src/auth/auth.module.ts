@@ -7,11 +7,12 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import type { StringValue } from 'ms';
-
+import { MailModule } from '../modules/mails/mail.module';
 @Module({
   imports: [
     PrismaModule,
-    ConfigModule, // Makes ConfigService available in this module
+    ConfigModule,
+    MailModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
 
     // registerAsync ensures ConfigService is fully loaded before the JWT
