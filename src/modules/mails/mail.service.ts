@@ -15,7 +15,18 @@ export class MailService {
             },
         });
     }
-
+    async sendBadgeEmail(user: any, badge: any) {
+        await this.mailerService.sendMail({
+            to: user.email,
+            subject: 'New Achievement Unlocked! 🏅',
+            template: './badge-won',
+            context: {
+                name: user.name || user.email,
+                badgeName: badge.name,
+                badgeColor: badge.color || '#4A6CF7',
+            },
+        });
+    }
     async sendOrderConfirmation(user: any, order: any) {
         await this.mailerService.sendMail({
             to: user.email,

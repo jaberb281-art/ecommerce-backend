@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid #e1e1e1;
+        }
+
+        .header {
+            background: #4A6CF7;
+            padding: 40px 20px;
+            text-align: center;
+            color: white;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .order-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4A6CF7;
+            margin-bottom: 10px;
+        }
+
+        .total-box {
+            background: #f4f7ff;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border: 1px dashed #4A6CF7;
+            text-align: center;
+        }
+
+        .footer {
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+            background: #f1f1f1;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #4A6CF7;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Order Confirmed! 📦</h1>
+            <p>We're getting your items ready for shipment.</p>
+        </div>
+        <div class="content">
+            <p>Hi <strong>
+                    <%= name %>
+                </strong>,</p>
+            <p>Thank you for your purchase! We've received your order and are processing it now.</p>
+
+            <div class="total-box">
+                <div class="order-number">#<%= orderId %>
+                </div>
+                <p style="margin: 0; color: #666;">Total Amount Paid</p>
+                <h2 style="margin: 5px 0; color: #333;">
+                    <%= total %> BHD
+                </h2>
+            </div>
+
+            <p>You can track your order status anytime by clicking the button below:</p>
+            <center>
+                <a href="https://yourstore.com/orders" class="btn">View My Orders</a>
+            </center>
+        </div>
+        <div class="footer">
+            <p>&copy; 2026 Your Store. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+
+</html>
