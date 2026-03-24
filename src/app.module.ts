@@ -19,6 +19,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { EventsModule } from './events/events.module';
 // import { PaymentsModule } from './payments/payments.module';
+import { ShopSettingsModule } from './modules/shop-settings/shop-settings.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { EventsModule } from './events/events.module';
     AnalyticsModule,
     AddressesModule,
     EventsModule,
+    ShopSettingsModule,
     // PaymentsModule,
 
   ],

@@ -252,3 +252,25 @@ model Event {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
+
+// ── Shop Configuration (Hero, Banners, Global Design) ────────────────────────
+
+model ShopSettings {
+  id                String   @id @default("singleton")
+  
+  // Hero Section (Managed via Admin)
+  heroImageUrl      String   @default("https://placeholder.com/hero.jpg")
+  heroTitle         String   @default("Own Your Identity.")
+  heroSubtitle      String   @default("Handcrafted phone cases. Limited drops. Express your culture.")
+  heroButtonText    String   @default("Shop Now")
+  heroButtonLink    String   @default("/shop")
+  
+  // Urgency/Promo Banner
+  bannerText        String   @default("🔥 Only 3 left! New designs dropping in 12h")
+  isBannerVisible   Boolean  @default(true)
+  bannerBgColor     String   @default("#FFF7ED") // Matches the light orange in your design
+  bannerTextColor   String   @default("#C2410C")
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
