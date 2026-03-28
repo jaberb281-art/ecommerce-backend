@@ -257,6 +257,7 @@ model Event {
 
 model ShopSettings {
   id                String   @id @default("singleton")
+  announcementSlides Json @default("[]")
   
   // Hero Section (Managed via Admin)
   heroImageUrl      String   @default("https://placeholder.com/hero.jpg")
