@@ -258,6 +258,8 @@ model Event {
 model ShopSettings {
   id                String   @id @default("singleton")
   announcementSlides Json @default("[]")
+  announcementBgColor   String? @default("#18181b")
+announcementTextColor String? @default("#ffffff")
   
   // Hero Section (Managed via Admin)
   heroImageUrl      String   @default("https://placeholder.com/hero.jpg")

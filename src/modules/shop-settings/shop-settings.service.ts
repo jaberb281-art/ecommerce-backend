@@ -41,6 +41,8 @@ export class ShopSettingsService {
         bannerBgColor?: string;
         bannerTextColor?: string;
         announcementSlides?: any[];
+        announcementBgColor?: string;
+        announcementTextColor?: string;
     }) {
         try {
             return await this.prisma.shopSettings.update({
