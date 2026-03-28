@@ -40,6 +40,7 @@ export class ShopSettingsService {
         isBannerVisible?: boolean;
         bannerBgColor?: string;
         bannerTextColor?: string;
+        announcementSlides?: any[];
     }) {
         try {
             return await this.prisma.shopSettings.update({
