@@ -1,21 +1,26 @@
+import express from 'express';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import { ExpressAdapter } from '@nestjs/platform-express';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+// Create the Express instance outside the bootstrap
+const server = express();
+
+export const bootstrap = async () => {
+  const app = await NestFactory.create(
+    AppModule,
+    new ExpressAdapter(server),
+  );
 
   app.setGlobalPrefix('api');
 
-  // UPDATED VALIDATION PIPE
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      // FIX: This ensures that numbers in your DTO (like page and limit) 
-      // are automatically converted even if @Type(() => Number) is missing.
       transformOptions: {
         enableImplicitConversion: true,
       },
@@ -26,9 +31,6 @@ async function bootstrap() {
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:3002',
-    'https://ecommerce-admin-production-7e7b.up.railway.app',
-    'https://ecommerce-storefront-production.up.railway.app',
-    'https://ecommerce-backend-production-44ff.up.railway.app',
     'https://ecommerce-storefront-g9rn.vercel.app',
   ];
 
@@ -37,7 +39,6 @@ async function bootstrap() {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        // Strict for production, but allows current origins
         callback(null, true);
       }
     },
@@ -56,11 +57,16 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT || 8080;
-  await app.listen(port);
-  console.log(`🚀 Server running on port ${port}`);
+  // CRITICAL: Initialize NestJS but don't call app.listen()
+  await app.init();
+};
+
+// Start locally, but let Vercel handle production
+if (process.env.NODE_ENV !== 'production') {
+  bootstrap().then(() => {
+    const port = process.env.PORT || 8080;
+    server.listen(port, () => console.log(`🚀 Local server on port ${port}`));
+  });
 }
 
-export default (async () => {
-  await bootstrap();
-})();
+export default server;
