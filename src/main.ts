@@ -26,23 +26,10 @@ export const bootstrap = async () => {
     }),
   );
 
-  const allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002',
-    'https://ecommerce-storefront-g9rn.vercel.app',
-  ];
-
+  // Simplified CORS for testing deployment
   app.enableCors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(null, true);
-      }
-    },
+    origin: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-idempotency-key'],
     credentials: true,
   });
 
@@ -55,17 +42,16 @@ export const bootstrap = async () => {
 
   const document = SwaggerModule.createDocument(app, config);
 
-  // FIX: Setting the path to 'docs' while useGlobalPrefix is true 
-  // results in the correct /api/docs path.
+  // FIX: Map Swagger to 'docs' so it lives at /api/docs
   SwaggerModule.setup('docs', app, document, {
     useGlobalPrefix: true,
+    customSiteTitle: 'Shbash API Docs',
   });
 
   await app.init();
-  return server; // Explicitly return the instance
 };
 
-// Local vs Vercel logic
+// Start logic
 if (process.env.NODE_ENV !== 'production') {
   bootstrap().then(() => {
     const port = process.env.PORT || 8080;
