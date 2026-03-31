@@ -5,7 +5,6 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import { ExpressAdapter } from '@nestjs/platform-express';
 
-// Create the Express instance outside the bootstrap
 const server = express();
 
 export const bootstrap = async () => {
@@ -55,13 +54,18 @@ export const bootstrap = async () => {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
 
-  // CRITICAL: Initialize NestJS but don't call app.listen()
+  // FIX: Setting the path to 'docs' while useGlobalPrefix is true 
+  // results in the correct /api/docs path.
+  SwaggerModule.setup('docs', app, document, {
+    useGlobalPrefix: true,
+  });
+
   await app.init();
+  return server; // Explicitly return the instance
 };
 
-// Start locally, but let Vercel handle production
+// Local vs Vercel logic
 if (process.env.NODE_ENV !== 'production') {
   bootstrap().then(() => {
     const port = process.env.PORT || 8080;
