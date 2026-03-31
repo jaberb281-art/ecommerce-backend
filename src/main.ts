@@ -29,6 +29,7 @@ async function bootstrap() {
     'https://ecommerce-admin-production-7e7b.up.railway.app',
     'https://ecommerce-storefront-production.up.railway.app',
     'https://ecommerce-backend-production-44ff.up.railway.app',
+    'https://ecommerce-storefront-g9rn.vercel.app',
   ];
 
   app.enableCors({
@@ -56,9 +57,10 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT || 8080;
-  await app.listen(port, '0.0.0.0');
-
+  await app.listen(port);
   console.log(`🚀 Server running on port ${port}`);
 }
 
-bootstrap();
+export default (async () => {
+  await bootstrap();
+})();
