@@ -7,7 +7,7 @@ import express from 'express';
 
 const server = express();
 
-// We create a variable to track if the app is initialized
+// Track initialization to prevent re-bootstrapping on warm starts
 let isAppInitialized = false;
 
 async function setupNestApp() {
@@ -32,15 +32,24 @@ async function setupNestApp() {
 
   const config = new DocumentBuilder()
     .setTitle('Shbash E-Commerce API')
+    .setDescription('The official backend for Shbash')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
 
-  // Maps to /api/docs because of the 'api' prefix
+  // Added CDN assets for Swagger UI to fix blank page on Vercel
   SwaggerModule.setup('docs', app, document, {
     useGlobalPrefix: true,
+    customSiteTitle: 'Shbash API Docs',
+    customJs: [
+      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.min.js',
+    ],
+    customCssUrl: [
+      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css',
+    ],
   });
 
   await app.init();
