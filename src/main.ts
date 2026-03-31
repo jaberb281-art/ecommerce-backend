@@ -13,6 +13,7 @@ export const bootstrap = async () => {
     new ExpressAdapter(server),
   );
 
+  // This moves everything to /api
   app.setGlobalPrefix('api');
 
   app.useGlobalPipes(
@@ -20,13 +21,10 @@ export const bootstrap = async () => {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
+      transformOptions: { enableImplicitConversion: true },
     }),
   );
 
-  // Simplified CORS for testing deployment
   app.enableCors({
     origin: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
@@ -42,20 +40,17 @@ export const bootstrap = async () => {
 
   const document = SwaggerModule.createDocument(app, config);
 
-  // FIX: Map Swagger to 'docs' so it lives at /api/docs
-  SwaggerModule.setup('docs', app, document, {
-    useGlobalPrefix: true,
-    customSiteTitle: 'Shbash API Docs',
-  });
+  // FIX: Because of setGlobalPrefix('api'), we only need 'docs' here.
+  // This makes the final URL: /api/docs
+  SwaggerModule.setup('docs', app, document);
 
   await app.init();
 };
 
-// Start logic
 if (process.env.NODE_ENV !== 'production') {
   bootstrap().then(() => {
     const port = process.env.PORT || 8080;
-    server.listen(port, () => console.log(`🚀 Local server on port ${port}`));
+    server.listen(port, () => console.log(`🚀 Local on port ${port}`));
   });
 }
 
