@@ -6,8 +6,10 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { GithubStrategy } from './strategies/github.strategy'; // 1. Add this import
 import type { StringValue } from 'ms';
 import { MailModule } from '../modules/mails/mail.module';
+
 @Module({
   imports: [
     PrismaModule,
@@ -15,16 +17,12 @@ import { MailModule } from '../modules/mails/mail.module';
     MailModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
 
-    // registerAsync ensures ConfigService is fully loaded before the JWT
-    // secret is read — safe, and crashes loudly if JWT_SECRET is missing
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const secret = configService.get<string>('JWT_SECRET');
 
-        // Crash on startup if secret is missing — never silently fall
-        // back to a hardcoded value that could end up in git history
         if (!secret) {
           throw new Error(
             'JWT_SECRET is not defined in environment variables. ' +
@@ -42,7 +40,11 @@ import { MailModule } from '../modules/mails/mail.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    GithubStrategy // 2. Added here correctly
+  ],
   exports: [AuthService],
 })
 export class AuthModule { }
