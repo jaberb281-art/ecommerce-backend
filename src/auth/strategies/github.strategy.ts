@@ -7,9 +7,9 @@ import { ConfigService } from '@nestjs/config'; // Recommended to use ConfigServ
 export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
     constructor(private configService: ConfigService) {
         super({
-            // The '!' tells TS these will definitely be strings at runtime
-            clientID: configService.get<string>('GITHUB_CLIENT_ID')!,
-            clientSecret: configService.get<string>('GITHUB_CLIENT_SECRET')!,
+            // Directly paste the strings here without configService.get()
+            clientID: 'Ov23liwh0pUPL1zRXa7y',
+            clientSecret: '25d22fec2e3cd8d3fa080d72c7ce8a13b64c01ed',
             callbackURL: 'https://ecommerce-backend-cqoc.vercel.app/api/auth/callback/github',
             scope: ['user:email'],
         });
