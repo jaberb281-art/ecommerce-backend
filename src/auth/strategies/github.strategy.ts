@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-github2';
+
 @Injectable()
 export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
-    // src/auth/strategies/github.strategy.ts
     constructor() {
         super({
             clientID: 'Ov23liwh0pUPL1zRXa7y',
@@ -11,7 +11,6 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
             callbackURL: 'https://ecommerce-backend-cqoc.vercel.app/api/auth/callback/github',
             scope: ['user:email'],
         });
-
     }
 
     async validate(accessToken: string, refreshToken: string, profile: any) {
@@ -19,7 +18,7 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
         return {
             email: emails[0].value,
             name: username,
-            picture: photos[0].value,
+            picture: photos[0]?.value || null,
             accessToken,
         };
     }
