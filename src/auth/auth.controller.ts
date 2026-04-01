@@ -70,7 +70,7 @@ export class AuthController {
         const result = await this.authService.loginWithGithub(req.user);
 
         // Redirect back to your Admin dashboard with the token
-        const redirectUrl = `https://ecommerce-admin-cqoc.vercel.app/login-success?token=${result.access_token}`;
+        const redirectUrl = `${process.env.ADMIN_URL}/login-success?token=${result.access_token}`;
         return res.redirect(redirectUrl);
     }
 

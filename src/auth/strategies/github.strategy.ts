@@ -8,10 +8,9 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
     // src/auth/strategies/github.strategy.ts
     constructor() {
         super({
-            clientID: 'Ov23liwh0pUPL1zRXa7y',
-            clientSecret: '25d22fec2e3cd8d3fa080d72c7ce8a13b64c01ed',
-            // NestJS adds /api automatically if it's in main.ts, but Passport needs the full absolute URL
-            callbackURL: 'https://ecommerce-backend-cqoc.vercel.app/api/auth/callback/github',
+            clientID: process.env.GITHUB_CLIENT_ID!,
+            clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+            callbackURL: process.env.GITHUB_CALLBACK_URL!,
             scope: ['user:email'],
         });
 
