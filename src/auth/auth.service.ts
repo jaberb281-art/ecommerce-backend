@@ -7,7 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { MailService } from '../modules/mails/mail.service'; // 1. Import the new service
+import { MailService } from '../modules/mails/mail.service';
 import * as bcrypt from 'bcrypt';
 
 export interface LoginDto {
@@ -31,9 +31,53 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
-    private mailService: MailService, // 2. Inject MailService
+    private mailService: MailService,
   ) { }
 
+  // --- UPDATED GITHUB LOGIN METHOD ---
+  async loginWithGithub(githubUser: any) {
+    const { email, name, picture } = githubUser;
+
+    // 1. Check if user exists
+    let user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    // 2. If not, create a new user
+    if (!user) {
+      // Generate a random high-entropy string as a placeholder password
+      const placeholderPassword = Math.random().toString(36).slice(-16) + Date.now().toString();
+      const hashedPlaceholder = await bcrypt.hash(placeholderPassword, 10);
+
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          name: name || email.split('@')[0],
+          password: hashedPlaceholder, // Satisfies the @required constraint in Prisma
+        },
+      });
+
+      // Optional: Send welcome email to new GitHub users
+      try {
+        await this.mailService.sendWelcomeEmail(user);
+      } catch (error) {
+        console.error('Failed to send welcome email to GitHub user:', error);
+      }
+    }
+
+    // 3. Generate JWT
+    const payload = { sub: user.id, email: user.email, role: user.role };
+
+    return {
+      access_token: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    };
+  }
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
 
@@ -113,11 +157,9 @@ export class AuthService {
       },
     });
 
-    // 3. Trigger the Welcome Email
     try {
       await this.mailService.sendWelcomeEmail(user);
     } catch (error) {
-      // We log the error but don't stop the registration process
       console.error('Failed to send welcome email:', error);
     }
 

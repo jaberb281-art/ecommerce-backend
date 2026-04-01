@@ -8,7 +8,10 @@ import {
     Get,
     UseGuards,
     Request,
+    Req, // Add Req
+    Res, // Add Res
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport'; // Add this import
 
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -47,9 +50,31 @@ export class AuthController {
     @Throttle({ auth: { limit: 5, ttl: 60000 } })
     @ApiOperation({ summary: 'Login and receive an access token' })
     async login(@Body() loginDto: LoginDto) {
-        // Return token + user
         return this.authService.login(loginDto);
     }
+
+    // --- NEW GITHUB ROUTES START HERE ---
+
+    @Get('github')
+    @UseGuards(AuthGuard('github'))
+    @ApiOperation({ summary: 'Initiate GitHub OAuth login' })
+    async githubAuth(@Req() req) {
+        // Guard handles the redirect to GitHub
+    }
+
+    @Get('callback/github')
+    @UseGuards(AuthGuard('github'))
+    @ApiOperation({ summary: 'GitHub OAuth callback' })
+    async githubAuthRedirect(@Req() req, @Res() res) {
+        // req.user contains the profile data from GitHub
+        const result = await this.authService.loginWithGithub(req.user);
+
+        // Redirect back to your Admin dashboard with the token
+        const redirectUrl = `https://ecommerce-admin-cqoc.vercel.app/login-success?token=${result.access_token}`;
+        return res.redirect(redirectUrl);
+    }
+
+    // --- NEW GITHUB ROUTES END HERE ---
 
     @Post('logout')
     @HttpCode(HttpStatus.OK)
