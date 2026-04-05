@@ -2,6 +2,9 @@
   "compilerOptions": {
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    "target": "ES2023",
+    "outDir": "./dist",
+    "sourceMap": true,
     "types": [
       "node",
       "multer",
@@ -9,22 +12,26 @@
     ],
     "resolvePackageJsonExports": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "isolatedModules": true,
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
-    "target": "ES2023",
-    "sourceMap": true,
-    "outDir": "./dist",
-    "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    // 🔥 Modern replacement for baseUrl
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    },
+    // 🔕 Temporary silence for deprecation (TS < 7 migration)
+    "ignoreDeprecations": "6.0"
   }
 }
