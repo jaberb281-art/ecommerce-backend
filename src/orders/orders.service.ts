@@ -7,6 +7,7 @@ import {
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CouponsService } from '../coupons/coupons.service';
+import { PointsService } from '../points/points.service'; // ← NEW
 
 // ---------------------------------------------------------------------------
 // DTOs
@@ -70,6 +71,7 @@ export class OrdersService {
     constructor(
         private prisma: PrismaService,
         private couponsService: CouponsService,
+        private pointsService: PointsService, // ← NEW
     ) { }
 
     // -----------------------------------------------------------------------
@@ -123,7 +125,6 @@ export class OrdersService {
         let couponDiscount = 0;
         let validatedCouponId: string | undefined;
 
-        // Support lookup by couponId or couponCode
         const couponLookup = options.couponId
             ? { id: options.couponId }
             : options.couponCode
@@ -156,7 +157,6 @@ export class OrdersService {
                 });
             }
 
-            // Calculate subtotal to check minOrderValue
             const subtotal = cart.items.reduce(
                 (sum, item) => sum + item.product.price * item.quantity,
                 0,
@@ -169,7 +169,6 @@ export class OrdersService {
                 });
             }
 
-            // Calculate discount amount
             couponDiscount =
                 coupon.discountType === 'PERCENTAGE'
                     ? (subtotal * coupon.discountValue) / 100
@@ -179,7 +178,7 @@ export class OrdersService {
             validatedCouponId = coupon.id;
         }
 
-        // --- Run everything atomically ---
+        // --- Run order creation + points atomically ---
         const order = await this.prisma.$transaction(async (tx) => {
             let total = 0;
             const snapshots: { productId: string; quantity: number; price: number; name: string }[] = [];
@@ -220,10 +219,10 @@ export class OrdersService {
                 total += updated.price * item.quantity;
             }
 
-            // B. Apply coupon discount to total
+            // B. Apply coupon discount
             const discountedTotal = Math.max(total - couponDiscount, 0);
 
-            // C. Create the order with discounted total and coupon reference
+            // C. Create the order
             const newOrder = await tx.order.create({
                 data: {
                     userId,
@@ -248,7 +247,7 @@ export class OrdersService {
                 include: { items: true },
             });
 
-            // D. Increment coupon usedCount inside the same transaction
+            // D. Increment coupon usedCount
             if (validatedCouponId) {
                 await tx.coupon.update({
                     where: { id: validatedCouponId },
@@ -260,14 +259,36 @@ export class OrdersService {
             // E. Clear the cart
             await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
 
+            // ── NEW: F. Award purchase points inside the same transaction ──
+            // Points are only awarded on the discounted total (what they actually paid)
+            await this.pointsService.awardPurchasePoints(
+                tx,
+                userId,
+                newOrder.id,
+                discountedTotal,
+            );
+
             this.logger.log(
-                `Order ${newOrder.id} created for user ${userId} — total: ${discountedTotal} (discount: ${couponDiscount}) — shipping: ${options.shippingMethod ?? 'standard'} — payment: ${options.paymentMethod ?? 'cash'}`,
+                `Order ${newOrder.id} created for user ${userId} — total: ${discountedTotal} (discount: ${couponDiscount})`,
             );
 
             return newOrder;
         });
 
+        // ── NEW: G. Check order milestones AFTER the transaction ──
+        // This is outside the transaction intentionally — a milestone notification
+        // failing should never roll back a successful order.
+        this.checkAndAwardMilestone(userId, order.id).catch((err) =>
+            this.logger.error(`Milestone check failed for user ${userId}: ${err.message}`),
+        );
+
         return order;
+    }
+
+    // ── Helper: fire-and-forget milestone check ──────────────────────────────
+
+    private async checkAndAwardMilestone(userId: string, orderId: string) {
+        await this.pointsService.checkAndAwardMilestone(userId, orderId);
     }
 
     // -----------------------------------------------------------------------
@@ -300,7 +321,7 @@ export class OrdersService {
     }
 
     // -----------------------------------------------------------------------
-    // GET SINGLE ORDER — for current user
+    // GET SINGLE ORDER
     // -----------------------------------------------------------------------
 
     async getMyOrder(userId: string, orderId: string) {
@@ -328,7 +349,7 @@ export class OrdersService {
     }
 
     // -----------------------------------------------------------------------
-    // GET ALL ORDERS — Admin (paginated)
+    // GET ALL ORDERS — Admin
     // -----------------------------------------------------------------------
 
     async getAllOrders({ page = 1, limit = 20 }: PaginationOptions = {}) {

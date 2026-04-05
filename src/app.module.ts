@@ -18,23 +18,16 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { EventsModule } from './events/events.module';
-// import { PaymentsModule } from './payments/payments.module';
 import { ShopSettingsModule } from './modules/shop-settings/shop-settings.module';
+import { PointsModule } from './points/points.module'; // ← NEW
+// import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([
-      {
-        name: 'general',
-        ttl: 60000,
-        limit: 1000,
-      },
-      {
-        name: 'auth',
-        ttl: 60000,
-        limit: 10,
-      },
+      { name: 'general', ttl: 60000, limit: 1000 },
+      { name: 'auth', ttl: 60000, limit: 10 },
     ]),
     PrismaModule,
     AuthModule,
@@ -50,15 +43,15 @@ import { ShopSettingsModule } from './modules/shop-settings/shop-settings.module
     AddressesModule,
     EventsModule,
     ShopSettingsModule,
+    PointsModule, // ← NEW
     // PaymentsModule,
-
   ],
   controllers: [AppController],
   providers: [
     AppService,
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard, // This activates the Throttler limits you set above
+      useClass: ThrottlerGuard,
     },
   ],
 })

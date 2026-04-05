@@ -29,6 +29,8 @@ model User {
   userBadges     UserBadge[]
   userChallenges UserChallenge[]
   notifications  Notification[]
+  pointsBalance  Int  @default(0)
+  pointTransactions PointTransaction[]    
 }
 
 model Address {
@@ -114,6 +116,7 @@ model Order {
   giftRecipientAddress String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+   pointTransactions PointTransaction[]    
 }
 
 model OrderItem {
@@ -283,4 +286,27 @@ announcementTextColor String? @default("#ffffff")
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+enum PointTxType {
+  PURCHASE          // Earned from BD spent on an order (1 pt per BD 1)
+  ORDER_MILESTONE   // Bonus points for hitting order count milestones
+  CHALLENGE_REWARD  // Awarded when a challenge is completed
+  SOCIAL_CONNECT    // Linking Instagram / TikTok / Twitter
+  REDEMPTION        // Spending points to generate a coupon
+  MANUAL            // Admin-granted adjustment
+}
+
+model PointTransaction {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points      Int         // Positive = earned, Negative = spent
+  type        PointTxType
+  description String?     // Human-readable reason shown in transaction history
+  orderId     String?     // Present when type = PURCHASE or ORDER_MILESTONE
+  order       Order?      @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdAt   DateTime    @default(now())
+
+  @@index([userId])
+  @@index([orderId])
 }
