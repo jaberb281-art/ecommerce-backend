@@ -27,6 +27,12 @@ export interface CheckoutOptions {
     shippingMethod?: string;
     paymentMethod?: string;
     addressId?: string;
+    isGift?: boolean;
+    giftMessage?: string;
+    giftSenderName?: string;
+    giftRecipientName?: string;
+    giftRecipientPhone?: string;
+    giftRecipientAddress?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +231,12 @@ export class OrdersService {
                     ...(idempotencyKey ? { idempotencyKey } : {}),
                     ...(validatedCouponId ? { couponId: validatedCouponId } : {}),
                     ...(options.addressId ? { addressId: options.addressId } : {}),
+                    isGift: options.isGift ?? false,
+                    ...(options.giftMessage ? { giftMessage: options.giftMessage } : {}),
+                    ...(options.giftSenderName ? { giftSenderName: options.giftSenderName } : {}),
+                    ...(options.giftRecipientName ? { giftRecipientName: options.giftRecipientName } : {}),
+                    ...(options.giftRecipientPhone ? { giftRecipientPhone: options.giftRecipientPhone } : {}),
+                    ...(options.giftRecipientAddress ? { giftRecipientAddress: options.giftRecipientAddress } : {}),
                     items: {
                         create: snapshots.map(({ productId, quantity, price }) => ({
                             productId,

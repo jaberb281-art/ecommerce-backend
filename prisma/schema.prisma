@@ -106,6 +106,12 @@ model Order {
   address        Address?    @relation(fields: [addressId], references: [id])
   status         OrderStatus @default(PENDING)
   idempotencyKey String?     @unique
+  isGift         Boolean     @default(false)
+  giftMessage    String?
+  giftSenderName String?
+  giftRecipientName  String?
+  giftRecipientPhone String?
+  giftRecipientAddress String?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 }

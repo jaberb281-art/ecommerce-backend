@@ -58,6 +58,24 @@ export class CheckoutDto {
     @IsOptional()
     @IsString()
     addressId?: string;
+
+    @ApiPropertyOptional({ example: true })
+    @IsOptional()
+    isGift?: boolean;
+
+    @ApiPropertyOptional({ example: 'Happy Birthday!' })
+    @IsOptional()
+    @IsString()
+    giftMessage?: string;
+
+    @ApiPropertyOptional({ example: 'John' })
+    @IsOptional()
+    @IsString()
+    giftSenderName?: string;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    giftRecipientAddress?: any;
 }
 
 @ApiTags('orders')
@@ -88,6 +106,14 @@ export class OrdersController {
             shippingMethod: dto.shippingMethod,
             paymentMethod: dto.paymentMethod,
             addressId: dto.addressId,
+            isGift: dto.isGift,
+            giftMessage: dto.giftMessage,
+            giftSenderName: dto.giftSenderName ?? dto.giftRecipientAddress?.senderName,
+            giftRecipientName: dto.giftRecipientAddress?.fullName,
+            giftRecipientPhone: dto.giftRecipientAddress?.phone,
+            giftRecipientAddress: dto.giftRecipientAddress
+                ? `${dto.giftRecipientAddress.building ?? ''}, ${dto.giftRecipientAddress.street ?? ''}, Block ${dto.giftRecipientAddress.block ?? ''}, ${dto.giftRecipientAddress.city ?? ''}, ${dto.giftRecipientAddress.country ?? ''}`.replace(/,\s*,/g, ',').trim()
+                : undefined,
         });
     }
 
