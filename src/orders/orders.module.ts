@@ -4,7 +4,7 @@ import { OrdersController } from './orders.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { CouponsModule } from '../coupons/coupons.module';
 import { AddressesModule } from '../addresses/addresses.module';
-import { PointsModule } from '../points/points.module'; // ← NEW
+import { PointsModule } from '../points/points.module';
 
 @Module({
     imports: [
