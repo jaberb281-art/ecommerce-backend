@@ -2,13 +2,15 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service';
 
 export class CreateAddressDto {
-    fullName: string;
-    phone: string;
-    street: string;
-    city: string;
-    state: string;
-    zip: string;
-    country: string;
+    fullName!: string;
+    phone!: string;
+    street!: string;
+    building?: string;
+    block?: string;
+    city!: string;
+    state!: string;
+    zip!: string;
+    country!: string;
     isDefault?: boolean;
 }
 

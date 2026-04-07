@@ -39,6 +39,8 @@ model Address {
   userId     String
   fullName   String
   phone      String
+  building  String?  
+  block     String?
   street     String
   city       String
   state      String
