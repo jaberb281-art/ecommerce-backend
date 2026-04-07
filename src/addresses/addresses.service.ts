@@ -4,12 +4,12 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CreateAddressDto {
     fullName!: string;
     phone!: string;
-    street!: string;
     building?: string;
     block?: string;
+    street!: string;
     city!: string;
-    state!: string;
-    zip!: string;
+    state?: string;
+    zip?: string;
     country!: string;
     isDefault?: boolean;
 }
@@ -26,7 +26,6 @@ export class AddressesService {
     }
 
     async create(userId: string, dto: CreateAddressDto) {
-        // If new address is default, unset all others first
         if (dto.isDefault) {
             await this.prisma.address.updateMany({
                 where: { userId },
@@ -34,12 +33,26 @@ export class AddressesService {
             });
         }
 
-        // If this is the user's first address, make it default automatically
         const count = await this.prisma.address.count({ where: { userId } });
         const isDefault = dto.isDefault ?? count === 0;
 
+        // Combine building + block into street until migration runs
+        const streetFull = [dto.building, dto.block, dto.street]
+            .filter(Boolean)
+            .join(', ');
+
         return this.prisma.address.create({
-            data: { ...dto, userId, isDefault },
+            data: {
+                userId,
+                fullName: dto.fullName,
+                phone: dto.phone,
+                street: streetFull,
+                city: dto.city,
+                state: dto.state ?? '',
+                zip: dto.zip ?? '',
+                country: dto.country,
+                isDefault,
+            },
         });
     }
 
@@ -53,9 +66,22 @@ export class AddressesService {
             });
         }
 
+        const streetFull = [dto.building, dto.block, dto.street]
+            .filter(Boolean)
+            .join(', ');
+
         return this.prisma.address.update({
             where: { id: addressId },
-            data: dto,
+            data: {
+                ...(dto.fullName && { fullName: dto.fullName }),
+                ...(dto.phone && { phone: dto.phone }),
+                ...(streetFull && { street: streetFull }),
+                ...(dto.city && { city: dto.city }),
+                ...(dto.state !== undefined && { state: dto.state }),
+                ...(dto.zip !== undefined && { zip: dto.zip }),
+                ...(dto.country && { country: dto.country }),
+                ...(dto.isDefault !== undefined && { isDefault: dto.isDefault }),
+            },
         });
     }
 
@@ -63,7 +89,6 @@ export class AddressesService {
         await this.assertOwnership(userId, addressId);
         await this.prisma.address.delete({ where: { id: addressId } });
 
-        // If deleted address was default, promote the most recent one
         const remaining = await this.prisma.address.findFirst({
             where: { userId },
             orderBy: { createdAt: 'desc' },
