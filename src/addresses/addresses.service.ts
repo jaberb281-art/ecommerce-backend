@@ -36,17 +36,14 @@ export class AddressesService {
         const count = await this.prisma.address.count({ where: { userId } });
         const isDefault = dto.isDefault ?? count === 0;
 
-        // Combine building + block into street until migration runs
-        const streetFull = [dto.building, dto.block, dto.street]
-            .filter(Boolean)
-            .join(', ');
-
         return this.prisma.address.create({
             data: {
                 userId,
                 fullName: dto.fullName,
                 phone: dto.phone,
-                street: streetFull,
+                building: dto.building ?? null,
+                block: dto.block ?? null,
+                street: dto.street,
                 city: dto.city,
                 state: dto.state ?? '',
                 zip: dto.zip ?? '',
@@ -66,16 +63,14 @@ export class AddressesService {
             });
         }
 
-        const streetFull = [dto.building, dto.block, dto.street]
-            .filter(Boolean)
-            .join(', ');
-
         return this.prisma.address.update({
             where: { id: addressId },
             data: {
                 ...(dto.fullName && { fullName: dto.fullName }),
                 ...(dto.phone && { phone: dto.phone }),
-                ...(streetFull && { street: streetFull }),
+                ...(dto.building !== undefined && { building: dto.building }),
+                ...(dto.block !== undefined && { block: dto.block }),
+                ...(dto.street && { street: dto.street }),
                 ...(dto.city && { city: dto.city }),
                 ...(dto.state !== undefined && { state: dto.state }),
                 ...(dto.zip !== undefined && { zip: dto.zip }),
