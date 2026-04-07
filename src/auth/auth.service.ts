@@ -58,11 +58,11 @@ export class AuthService {
       });
 
       // Optional: Send welcome email to new GitHub users
-      try {
-        await this.mailService.sendWelcomeEmail(user);
-      } catch (error) {
-        console.error('Failed to send welcome email to GitHub user:', error);
-      }
+      // try {
+      //   await this.mailService.sendWelcomeEmail(user);
+      // } catch (error) {
+      //   console.error('Failed to send welcome email to GitHub user:', error);
+      // }
     }
 
     // 3. Generate JWT
@@ -157,11 +157,11 @@ export class AuthService {
       },
     });
 
-    try {
-      await this.mailService.sendWelcomeEmail(user);
-    } catch (error) {
-      console.error('Failed to send welcome email:', error);
-    }
+    // try {
+    //   await this.mailService.sendWelcomeEmail(user);
+    // } catch (error) {
+    //   console.error('Failed to send welcome email:', error);
+    // }
 
     const payload = { sub: user.id, email: user.email, role: user.role };
 
