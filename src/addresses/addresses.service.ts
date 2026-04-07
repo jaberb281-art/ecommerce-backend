@@ -28,12 +28,12 @@ export class CreateAddressDto {
     city!: string;
 
     @IsString()
-    @IsNotEmpty()
-    state!: string;
+    @IsOptional()
+    state?: string;
 
     @IsString()
-    @IsNotEmpty()
-    zip!: string;
+    @IsOptional()
+    zip?: string;
 
     @IsString()
     @IsNotEmpty()
@@ -55,7 +55,7 @@ export class AddressesService {
     }
 
     async create(userId: string, dto: CreateAddressDto) {
-        // If new address is default, unset all others first
+        // 1. Handle default address logic
         if (dto.isDefault) {
             await this.prisma.address.updateMany({
                 where: { userId },
@@ -63,12 +63,21 @@ export class AddressesService {
             });
         }
 
-        // If this is the user's first address, make it default automatically
         const count = await this.prisma.address.count({ where: { userId } });
         const isDefault = dto.isDefault ?? count === 0;
 
+        // 2. Create the address with fallbacks for optional fields
         return this.prisma.address.create({
-            data: { ...dto, userId, isDefault },
+            data: {
+                ...dto,
+                userId,
+                isDefault,
+                // If these aren't provided, we send an empty string to satisfy the non-null constraint
+                state: dto.state ?? "",
+                zip: dto.zip ?? "",
+                building: dto.building ?? null,
+                block: dto.block ?? null,
+            },
         });
     }
 
@@ -84,10 +93,14 @@ export class AddressesService {
 
         return this.prisma.address.update({
             where: { id: addressId },
-            data: dto,
+            data: {
+                ...dto,
+                // Use '?? undefined' to keep existing values if they aren't in the update DTO
+                state: dto.state ?? undefined,
+                zip: dto.zip ?? undefined,
+            },
         });
     }
-
     async remove(userId: string, addressId: string) {
         await this.assertOwnership(userId, addressId);
         await this.prisma.address.delete({ where: { id: addressId } });

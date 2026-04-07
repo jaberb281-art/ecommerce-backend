@@ -43,8 +43,8 @@ model Address {
   block     String?
   street     String
   city       String
-  state      String
-  zip        String
+  state      String?
+  zip        String?
   country    String
   isDefault  Boolean  @default(false)
   createdAt  DateTime @default(now())
