@@ -394,12 +394,13 @@ export class OrdersService {
     }
 
     // -----------------------------------------------------------------------
-    // UPDATE STATUS — Admin, with state machine validation
+    // UPDATE STATUS — Admin, with state machine validation & Points trigger
     // -----------------------------------------------------------------------
 
     async updateStatus(orderId: string, status: OrderStatus) {
         const order = await this.prisma.order.findUnique({
             where: { id: orderId },
+            include: { user: true }
         });
 
         if (!order) {
@@ -420,13 +421,28 @@ export class OrdersService {
 
         this.logger.log(`Order ${orderId} status: ${order.status} → ${status}`);
 
-        return this.prisma.order.update({
+        const updatedOrder = await this.prisma.order.update({
             where: { id: orderId },
             data: { status },
         });
-    }
 
-    // -----------------------------------------------------------------------
+        // ─── TRIGGER: Award points when order is marked as COMPLETED ───
+        if (status === OrderStatus.COMPLETED) {
+            try {
+                this.logger.log(`Order ${orderId} completed. Awarding points to user ${order.userId}`);
+
+                await this.pointsService.awardPurchasePoints(
+                    this.prisma,
+                    order.userId,
+                    order.id,
+                    Number(order.total),
+                );
+            } catch (error: any) { // Type it as 'any' here for the quick fix...
+                // ...or use (error as Error).message for better practice
+                this.logger.error(`Failed to award points for order ${orderId}: ${error.message}`);
+            }
+        }
+    }    // -----------------------------------------------------------------------
     // ADMIN STATS
     // -----------------------------------------------------------------------
 

@@ -91,9 +91,20 @@ export class PointsService {
         orderId: string,
         totalBD: number,
     ) {
+        // 1. NEW: Check if points were already awarded for this specific order
+        const existingTx = await tx.pointTransaction.findFirst({
+            where: { orderId, type: PointTxType.PURCHASE }
+        });
+
+        if (existingTx) {
+            this.logger.warn(`Points already awarded for order ${orderId}. Skipping.`);
+            return existingTx;
+        }
+
         const pointsEarned = Math.floor(totalBD * POINTS_CONFIG.POINTS_PER_BD);
         if (pointsEarned <= 0) return null;
 
+        // 2. Proceed with awarding
         const [transaction] = await Promise.all([
             tx.pointTransaction.create({
                 data: {
@@ -110,13 +121,9 @@ export class PointsService {
             }),
         ]);
 
-        this.logger.log(
-            `Points: +${pointsEarned} (PURCHASE) → user ${userId} / order ${orderId}`,
-        );
-
+        this.logger.log(`Points: +${pointsEarned} (PURCHASE) → user ${userId} / order ${orderId}`);
         return transaction;
     }
-
     // ─── Award: Order Milestone ────────────────────────────────────────────────
 
     /**
