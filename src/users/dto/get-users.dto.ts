@@ -11,6 +11,6 @@ export class GetUsersDto {
     @IsOptional()
     @Type(() => Number)
     @IsInt()
-    @Max(100)
+    @Max(500)
     limit: number = 20;
 }
