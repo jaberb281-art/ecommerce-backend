@@ -13,6 +13,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { ApiBearerAuth, ApiTags, ApiOperation, ApiBody } from '@nestjs/swagger';
+import { AdjustPointsDto } from './dto/adjust-points.dto';
 
 @ApiTags('points')
 @Controller('points')
@@ -111,9 +112,8 @@ export class PointsController {
     })
     async adjustPoints(
         @Param('userId') userId: string,
-        @Body('points') points: number,
-        @Body('description') description: string,
+        @Body() dto: AdjustPointsDto,
     ) {
-        return this.pointsService.awardManual(userId, points, description);
+        return this.pointsService.awardManual(userId, dto.points, dto.description);
     }
 }
