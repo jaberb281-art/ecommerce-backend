@@ -7,14 +7,10 @@ export class UsersService {
     constructor(private prisma: PrismaService) { }
 
     async findAll(dto: GetUsersDto) {
-        // 1. Add strict defaults to prevent 'undefined' values
         const page = Number(dto.page) || 1;
         const limit = Number(dto.limit) || 10;
-
-        // 2. Ensure skip is never negative
         const skip = Math.max((page - 1) * limit, 0);
 
-        // 3. Debug log to see exactly what the backend is receiving
         console.log(`[UsersService] Fetching page ${page} with limit ${limit}`);
 
         const [users, total] = await this.prisma.$transaction([
@@ -28,6 +24,7 @@ export class UsersService {
                     email: true,
                     role: true,
                     createdAt: true,
+                    pointsBalance: true,
                     _count: { select: { orders: true } },
                 },
             }),
