@@ -1,14 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service'; // Ensure this path matches your project structure
 
 @Injectable()
 export class ShopSettingsService {
     constructor(private prisma: PrismaService) { }
 
+    /**
+     * Fetches the current shop configuration.
+     * If no settings exist yet, it creates the initial 'singleton' record with defaults.
+     */
     async getSettings() {
         return this.prisma.shopSettings.upsert({
             where: { id: 'singleton' },
-            update: {},
+            update: {}, // Do nothing if it exists
             create: {
                 id: 'singleton',
                 heroTitle: 'Own Your Identity.',
@@ -22,12 +26,19 @@ export class ShopSettingsService {
         });
     }
 
+    /**
+     * Updates the shop settings.
+     * This handles both text changes and the new image URL from your upload service.
+     */
     async updateSettings(data: {
         heroTitle?: string;
         heroSubtitle?: string;
         heroImageUrl?: string;
         heroButtonText?: string;
         heroButtonLink?: string;
+        heroTagline?: string;
+        heroVisible?: boolean;
+        heroShowProduct?: boolean;
         bannerText?: string;
         isBannerVisible?: boolean;
         bannerBgColor?: string;
@@ -35,13 +46,34 @@ export class ShopSettingsService {
         announcementSlides?: any[];
         announcementBgColor?: string;
         announcementTextColor?: string;
-        categoryGrid?: any[];
-        heroTagline?: string;
-        heroVisible?: boolean;
-        heroShowProduct?: boolean;
+        bentoHotDealsLabel?: string;
+        bentoHotDealsTag?: string;
+        bentoHotDealsLink?: string;
+        bentoHotDealsVisible?: boolean;
+        bentoBestSellersLabel?: string;
+        bentoBestSellersTag?: string;
+        bentoBestSellersLink?: string;
+        bentoBestSellersVisible?: boolean;
+        bentoNewArrivalsLabel?: string;
+        bentoNewArrivalsLink?: string;
+        bentoNewArrivalsVisible?: boolean;
         bentoCategoryTitle?: string;
         bentoCategorySubtitle?: string;
         bentoSectionVisible?: boolean;
+        // Categories page
+        catHeroTitle?: string;
+        catHeroSubtitle?: string;
+        catHeroBadgeLabel?: string;
+        catHeroVisible?: boolean;
+        catTrustVisible?: boolean;
+        catTrustItems?: any[];
+        catGridTitle?: string;
+        catGridSubtitle?: string;
+        catCtaVisible?: boolean;
+        catCtaHeadline?: string;
+        catCtaSubtext?: string;
+        catCtaButtonLabel?: string;
+        catCtaButtonLink?: string;
     }) {
         try {
             return await this.prisma.shopSettings.update({
@@ -49,10 +81,15 @@ export class ShopSettingsService {
                 data,
             });
         } catch (error) {
+            // If for some reason the singleton hasn't been created yet
             throw new NotFoundException('Shop settings not found. Please initialize them first.');
         }
     }
 
+    /**
+     * Specifically updates only the Hero Image URL.
+     * Useful when calling from an Image Upload Controller.
+     */
     async updateHeroImage(url: string) {
         return this.prisma.shopSettings.update({
             where: { id: 'singleton' },
