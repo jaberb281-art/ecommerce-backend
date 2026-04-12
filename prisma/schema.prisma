@@ -14,67 +14,67 @@ enum Role {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String?
-  phone     String?
-  username  String?  @unique
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  cart      Cart?
-  orders    Order[]
-  addresses      Address[]
-  userBadges     UserBadge[]
-  userChallenges UserChallenge[]
-  notifications  Notification[]
-  pointsBalance  Int  @default(0)
-  pointTransactions PointTransaction[]    
+  id                String             @id @default(uuid())
+  email             String             @unique
+  password          String
+  name              String?
+  phone             String?
+  username          String?            @unique
+  role              Role               @default(USER)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  cart              Cart?
+  orders            Order[]
+  addresses         Address[]
+  userBadges        UserBadge[]
+  userChallenges    UserChallenge[]
+  notifications     Notification[]
+  pointsBalance     Int                @default(0)
+  pointTransactions PointTransaction[]
 }
 
 model Address {
-  id         String   @id @default(uuid())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId     String
-  fullName   String
-  phone      String
-  building  String?  
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  fullName  String
+  phone     String
+  building  String?
   block     String?
-  street     String
-  city       String
-  state      String?
-  zip        String?
-  country    String
-  isDefault  Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  orders     Order[]
+  street    String
+  city      String
+  state     String?
+  zip       String?
+  country   String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
 }
 
 model Category {
   id        String    @id @default(uuid())
   name      String    @unique
   products  Product[]
-  image String?
+  image     String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
 
 model Product {
-  id          String      @id @default(uuid())
+  id          String        @id @default(uuid())
   name        String
   description String?
   price       Float
-  stock       Int         @default(0)
+  stock       Int           @default(0)
   images      String[]
   status      ProductStatus @default(DRAFT)
   categoryId  String
-  category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category    Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   cartItems   CartItem[]
   orderItems  OrderItem[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
 model Cart {
@@ -94,31 +94,32 @@ model CartItem {
   productId String
   quantity  Int      @default(1)
   createdAt DateTime @default(now())
+
   @@unique([cartId, productId])
 }
 
 model Order {
-  id             String      @id @default(uuid())
-  user           User        @relation(fields: [userId], references: [id])
-  userId         String
-  items          OrderItem[]
-  total          Float
-  discount       Float?
-  couponId       String?
-  coupon         Coupon?     @relation(fields: [couponId], references: [id])
-  addressId      String?
-  address        Address?    @relation(fields: [addressId], references: [id])
-  status         OrderStatus @default(PENDING)
-  idempotencyKey String?     @unique
-  isGift         Boolean     @default(false)
-  giftMessage    String?
-  giftSenderName String?
-  giftRecipientName  String?
-  giftRecipientPhone String?
+  id                   String             @id @default(uuid())
+  user                 User               @relation(fields: [userId], references: [id])
+  userId               String
+  items                OrderItem[]
+  total                Float
+  discount             Float?
+  couponId             String?
+  coupon               Coupon?            @relation(fields: [couponId], references: [id])
+  addressId            String?
+  address              Address?           @relation(fields: [addressId], references: [id])
+  status               OrderStatus        @default(PENDING)
+  idempotencyKey       String?            @unique
+  isGift               Boolean            @default(false)
+  giftMessage          String?
+  giftSenderName       String?
+  giftRecipientName    String?
+  giftRecipientPhone   String?
   giftRecipientAddress String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-   pointTransactions PointTransaction[]    
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  pointTransactions    PointTransaction[]
 }
 
 model OrderItem {
@@ -179,14 +180,15 @@ model Badge {
 }
 
 model UserBadge {
-  id         String   @id @default(uuid())
-  userId     String
-  badgeId    String
-  awardedAt  DateTime @default(now())
-  awardedBy  String?
-  note       String?
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  badge      Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid())
+  userId    String
+  badgeId   String
+  awardedAt DateTime @default(now())
+  awardedBy String?
+  note      String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
   @@unique([userId, badgeId])
 }
 
@@ -197,16 +199,16 @@ enum ChallengeType {
 }
 
 model Challenge {
-  id             String        @id @default(uuid())
+  id             String          @id @default(uuid())
   name           String
   description    String?
   type           ChallengeType
   target         Float
   badgeId        String?
-  badge          Badge?        @relation(fields: [badgeId], references: [id])
-  isActive       Boolean       @default(true)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  badge          Badge?          @relation(fields: [badgeId], references: [id])
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   userChallenges UserChallenge[]
 }
 
@@ -219,6 +221,7 @@ model UserChallenge {
   completedAt DateTime?
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
   @@unique([userId, challengeId])
 }
 
@@ -239,8 +242,6 @@ model Notification {
   createdAt DateTime         @default(now())
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-
-// ── Events (Pop-ups, Exhibitions, Mall appearances) ──────────────────────────
 
 enum EventStatus {
   UPCOMING
@@ -265,95 +266,84 @@ model Event {
   updatedAt   DateTime    @updatedAt
 }
 
-// ── Shop Configuration (Hero, Banners, Global Design) ────────────────────────
-
 model ShopSettings {
-  id                String   @id @default("singleton")
-  announcementSlides Json @default("[]")
+  id String @id @default("singleton")
+
+  announcementSlides    Json
   announcementBgColor   String? @default("#18181b")
-announcementTextColor String? @default("#ffffff")
-  
-  // Hero Section (Managed via Admin)
-  heroImageUrl      String   @default("https://placeholder.com/hero.jpg")
-  heroTitle         String   @default("Own Your Identity.")
-  heroSubtitle      String   @default("Handcrafted phone cases. Limited drops. Express your culture.")
-  heroButtonText    String   @default("Shop Now")
-  heroButtonLink    String   @default("/shop")
-  
-  // Urgency/Promo Banner
-  bannerText        String   @default("🔥 Only 3 left! New designs dropping in 12h")
-  isBannerVisible   Boolean  @default(true)
-  bannerBgColor     String   @default("#FFF7ED")
-  bannerTextColor   String   @default("#C2410C")
+  announcementTextColor String? @default("#ffffff")
 
-  // Hero Section Controls
-  heroTagline       String   @default("New Arrivals")
-  heroVisible       Boolean  @default(true)
-  heroShowProduct   Boolean  @default(true)
+  heroImageUrl   String @default("https://placeholder.com/hero.jpg")
+  heroTitle      String @default("Own Your Identity.")
+  heroSubtitle   String @default("Handcrafted phone cases. Limited drops. Express your culture.")
+  heroButtonText String @default("Shop Now")
+  heroButtonLink String @default("/shop")
 
-  // Bento Grid — Hot Deals card
-  bentoHotDealsLabel    String  @default("HOT DEALS")
-  bentoHotDealsTag      String  @default("Most Popular")
-  bentoHotDealsLink     String  @default("/shop?sort=best-sellers")
-  bentoHotDealsVisible  Boolean @default(true)
+  bannerText      String  @default("🔥 Only 3 left! New designs dropping in 12h")
+  isBannerVisible Boolean @default(true)
+  bannerBgColor   String  @default("#FFF7ED")
+  bannerTextColor String  @default("#C2410C")
 
-  // Bento Grid — Best Sellers card
+  heroTagline     String  @default("New Arrivals")
+  heroVisible     Boolean @default(true)
+  heroShowProduct Boolean @default(true)
+
+  bentoHotDealsLabel   String  @default("HOT DEALS")
+  bentoHotDealsTag     String  @default("Most Popular")
+  bentoHotDealsLink    String  @default("/shop?sort=best-sellers")
+  bentoHotDealsVisible Boolean @default(true)
+
   bentoBestSellersLabel   String  @default("BEST SELLERS")
   bentoBestSellersTag     String  @default("Top Rated")
   bentoBestSellersLink    String  @default("/shop?sort=best-sellers")
   bentoBestSellersVisible Boolean @default(true)
 
-  // Bento Grid — New Arrivals card
   bentoNewArrivalsLabel   String  @default("NEW ARRIVALS")
   bentoNewArrivalsLink    String  @default("/shop?sort=newest")
   bentoNewArrivalsVisible Boolean @default(true)
 
-  // Bento Grid — section heading
   bentoCategoryTitle    String  @default("SHOP BY CATEGORY")
   bentoCategorySubtitle String  @default("Curated collections for your tech.")
   bentoSectionVisible   Boolean @default(true)
 
-  // Categories Page — Hero
-  catHeroTitle        String  @default("Shop By Category.")
-  catHeroSubtitle     String  @default("Find exactly what you're looking for across our full range of premium mobile accessories and gadgets.")
-  catHeroBadgeLabel   String  @default("Browse All")
-  catHeroVisible      Boolean @default(true)
+  catHeroTitle      String  @default("Shop By Category.")
+  catHeroSubtitle   String  @default("Find exactly what you're looking for across our full range of premium mobile accessories and gadgets.")
+  catHeroBadgeLabel String  @default("Browse All")
+  catHeroVisible    Boolean @default(true)
 
-  // Categories Page — Trust Bar
-  catTrustVisible     Boolean @default(true)
-  catTrustItems       Json    @default("[{"icon":"Package","title":"Curated Collection","sub":"Handpicked premium items"},{"icon":"Truck","title":"Fast Shipping","sub":"Quick nationwide delivery"},{"icon":"ShieldCheck","title":"Genuine Quality","sub":"Original products only"}]")
+  catTrustVisible Boolean @default(true)
+  catTrustItems Json?
 
-  // Categories Page — Grid heading
-  catGridTitle        String  @default("Explore Categories")
-  catGridSubtitle     String  @default("Choose a category to discover our carefully curated products")
+  catGridTitle    String @default("Explore Categories")
+  catGridSubtitle String @default("Choose a category to discover our carefully curated products")
 
-  // Categories Page — CTA Banner
-  catCtaVisible       Boolean @default(true)
-  catCtaHeadline      String  @default("Can't find what you're looking for?")
-  catCtaSubtext       String  @default("Browse all products in our shop")
-  catCtaButtonLabel   String  @default("View All Products")
-  catCtaButtonLink    String  @default("/shop")
+  catCtaVisible     Boolean @default(true)
+  catCtaHeadline    String  @default("Can't find what you're looking for?")
+  catCtaSubtext     String  @default("Browse all products in our shop")
+  catCtaButtonLabel String  @default("View All Products")
+  catCtaButtonLink  String  @default("/shop")
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
+
 enum PointTxType {
-  PURCHASE          // Earned from BD spent on an order (1 pt per BD 1)
-  ORDER_MILESTONE   // Bonus points for hitting order count milestones
-  CHALLENGE_REWARD  // Awarded when a challenge is completed
-  SOCIAL_CONNECT    // Linking Instagram / TikTok / Twitter
-  REDEMPTION        // Spending points to generate a coupon
-  MANUAL            // Admin-granted adjustment
+  PURCHASE
+  ORDER_MILESTONE
+  CHALLENGE_REWARD
+  SOCIAL_CONNECT
+  REDEMPTION
+  MANUAL
 }
 
 model PointTransaction {
   id          String      @id @default(uuid())
   userId      String
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  points      Int         // Positive = earned, Negative = spent
+  points      Int
   type        PointTxType
-  description String?     // Human-readable reason shown in transaction history
-  orderId     String?     // Present when type = PURCHASE or ORDER_MILESTONE
+  description String?
+  orderId     String?
   order       Order?      @relation(fields: [orderId], references: [id], onDelete: SetNull)
   createdAt   DateTime    @default(now())
 

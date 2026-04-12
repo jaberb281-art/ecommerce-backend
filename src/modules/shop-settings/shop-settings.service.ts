@@ -1,20 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service'; // Ensure this path matches your project structure
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class ShopSettingsService {
     constructor(private prisma: PrismaService) { }
 
-    /**
-     * Fetches the current shop configuration.
-     * If no settings exist yet, it creates the initial 'singleton' record with defaults.
-     */
     async getSettings() {
         return this.prisma.shopSettings.upsert({
             where: { id: 'singleton' },
-            update: {}, // Do nothing if it exists
+            update: {},
             create: {
                 id: 'singleton',
+                // ✅ Required field — was missing entirely
+                announcementSlides: [],
+                // ✅ These match the schema exactly
                 heroTitle: 'Own Your Identity.',
                 heroSubtitle: 'Handcrafted phone cases. Limited drops. Express your culture.',
                 heroImageUrl: 'https://placeholder.com/hero.jpg',
@@ -26,10 +25,6 @@ export class ShopSettingsService {
         });
     }
 
-    /**
-     * Updates the shop settings.
-     * This handles both text changes and the new image URL from your upload service.
-     */
     async updateSettings(data: {
         heroTitle?: string;
         heroSubtitle?: string;
@@ -60,7 +55,6 @@ export class ShopSettingsService {
         bentoCategoryTitle?: string;
         bentoCategorySubtitle?: string;
         bentoSectionVisible?: boolean;
-        // Categories page
         catHeroTitle?: string;
         catHeroSubtitle?: string;
         catHeroBadgeLabel?: string;
@@ -81,15 +75,10 @@ export class ShopSettingsService {
                 data,
             });
         } catch (error) {
-            // If for some reason the singleton hasn't been created yet
             throw new NotFoundException('Shop settings not found. Please initialize them first.');
         }
     }
 
-    /**
-     * Specifically updates only the Hero Image URL.
-     * Useful when calling from an Image Upload Controller.
-     */
     async updateHeroImage(url: string) {
         return this.prisma.shopSettings.update({
             where: { id: 'singleton' },
