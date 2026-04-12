@@ -36,6 +36,12 @@ export class ShopSettingsService {
         announcementBgColor?: string;
         announcementTextColor?: string;
         categoryGrid?: any[];
+        heroTagline?: string;
+        heroVisible?: boolean;
+        heroShowProduct?: boolean;
+        bentoCategoryTitle?: string;
+        bentoCategorySubtitle?: string;
+        bentoSectionVisible?: boolean;
     }) {
         try {
             return await this.prisma.shopSettings.update({

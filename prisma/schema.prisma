@@ -287,6 +287,16 @@ announcementTextColor String? @default("#ffffff")
   // Shop by Category bento grid tiles
   categoryGrid      Json     @default("[{\"id\":\"hot-deals\",\"label\":\"HOT DEALS\",\"badge\":\"% MOST POPULAR\",\"link\":\"/shop\",\"imageUrl\":\"\",\"size\":\"large\"},{\"id\":\"best-sellers\",\"label\":\"BEST SELLERS\",\"badge\":\"⭐ TOP RATED\",\"link\":\"/shop\",\"imageUrl\":\"\",\"size\":\"large\"},{\"id\":\"new-arrivals\",\"label\":\"NEW ARRIVALS\",\"badge\":\"\",\"link\":\"/shop\",\"imageUrl\":\"\",\"size\":\"medium\"},{\"id\":\"all-categories\",\"label\":\"ALL CATEGORIES\",\"badge\":\"CURATED\",\"link\":\"/categories\",\"imageUrl\":\"\",\"size\":\"medium\"}]")
 
+  // Hero section extra controls
+  heroTagline       String   @default("New Arrivals")
+  heroVisible       Boolean  @default(true)
+  heroShowProduct   Boolean  @default(true)
+
+  // Bento section heading controls
+  bentoCategoryTitle    String  @default("SHOP BY CATEGORY")
+  bentoCategorySubtitle String  @default("Curated collections for your tech.")
+  bentoSectionVisible   Boolean @default(true)
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
