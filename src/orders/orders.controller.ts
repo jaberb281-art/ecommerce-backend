@@ -20,6 +20,8 @@ import { OrderResponseDto } from './dto/order-response.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { AdminStatsResponse } from './orders.types';
 import { IsOptional, IsString, IsEnum } from 'class-validator';
+import { Public } from '../auth/decorators/public.decorator';
+
 
 export enum ShippingMethod {
     EXPRESS = 'express',
@@ -162,6 +164,14 @@ export class OrdersController {
     @UseGuards(RolesGuard)
     async getStats(): Promise<AdminStatsResponse> {
         return this.ordersService.getAdminStats();
+    }
+    // -------------------------------------------------------------------------
+    // GET /orders/track/:id  — Public, no auth required
+    // -------------------------------------------------------------------------
+    @Get('track/:id')
+    @Public()
+    async trackOrder(@Param('id') id: string) {
+        return this.ordersService.trackOrder(id);
     }
 
     // -------------------------------------------------------------------------

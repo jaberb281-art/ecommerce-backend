@@ -464,4 +464,25 @@ export class OrdersService {
             totalUsers: userCount,
         };
     }
+    async trackOrder(id: string) {
+        const order = await this.prisma.order.findUnique({
+            where: { id },
+            include: {
+                items: {
+                    include: {
+                        product: {
+                            select: { id: true, name: true, images: true },
+                        },
+                    },
+                },
+                address: true,
+            },
+        });
+
+        if (!order) {
+            throw new NotFoundException('Order not found');
+        }
+
+        return order;
+    }
 }
