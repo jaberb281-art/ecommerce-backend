@@ -7,7 +7,8 @@ import {
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CouponsService } from '../coupons/coupons.service';
-import { PointsService } from '../points/points.service'; // ← NEW
+import { PointsService } from '../points/points.service';
+
 
 // ---------------------------------------------------------------------------
 // DTOs

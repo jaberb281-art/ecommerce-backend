@@ -22,7 +22,6 @@ import { AdminStatsResponse } from './orders.types';
 import { IsOptional, IsString, IsEnum } from 'class-validator';
 import { Public } from '../auth/decorators/public.decorator';
 
-
 export enum ShippingMethod {
     EXPRESS = 'express',
     STANDARD = 'standard',
@@ -165,6 +164,7 @@ export class OrdersController {
     async getStats(): Promise<AdminStatsResponse> {
         return this.ordersService.getAdminStats();
     }
+
     // -------------------------------------------------------------------------
     // GET /orders/track/:id  — Public, no auth required
     // -------------------------------------------------------------------------
