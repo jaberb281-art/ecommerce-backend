@@ -68,6 +68,8 @@ export class ShopSettingsService {
         catCtaSubtext?: string;
         catCtaButtonLabel?: string;
         catCtaButtonLink?: string;
+        profileBannerImages?: any[];
+        profileCardTagline?: string;
     }) {
         try {
             return await this.prisma.shopSettings.update({

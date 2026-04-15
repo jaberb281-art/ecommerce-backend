@@ -324,6 +324,10 @@ model ShopSettings {
   catCtaButtonLabel String  @default("View All Products")
   catCtaButtonLink  String  @default("/shop")
 
+  // Profile card customisation
+  profileBannerImages Json?
+  profileCardTagline  String? @default("Shbash Member")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
