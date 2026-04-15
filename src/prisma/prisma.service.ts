@@ -5,12 +5,8 @@ import { PrismaClient } from '@prisma/client';
 export class PrismaService extends PrismaClient implements OnModuleInit {
   constructor() {
     super({
-      datasources: {
-        db: {
-          // This manually passes the URL since it's no longer in schema.prisma
-          url: process.env.DATABASE_URL,
-        },
-      },
+      // Prisma 7 uses 'datasourceUrl' instead of 'datasources'
+      datasourceUrl: process.env.DATABASE_URL,
     });
   }
 
