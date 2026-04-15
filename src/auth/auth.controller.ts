@@ -98,7 +98,7 @@ export class AuthController {
     @ApiOperation({ summary: 'Update current user profile' })
     async updateProfile(
         @Request() req: AuthenticatedRequest,
-        @Body() body: { name?: string; phone?: string },
+        @Body() body: { name?: string; phone?: string; profileBg?: string },
     ) {
         return this.authService.updateProfile(req.user.id, body);
     }

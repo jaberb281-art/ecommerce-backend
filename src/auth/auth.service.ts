@@ -194,7 +194,7 @@ export class AuthService {
     return result;
   }
 
-  async updateProfile(userId: string, data: { name?: string; phone?: string }) {
+  async updateProfile(userId: string, data: { name?: string; phone?: string; profileBg?: string }) {
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
