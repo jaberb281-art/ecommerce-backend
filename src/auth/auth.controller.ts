@@ -64,14 +64,20 @@ export class AuthController {
 
     @Get('callback/github')
     @UseGuards(AuthGuard('github'))
-    @ApiOperation({ summary: 'GitHub OAuth callback' })
     async githubAuthRedirect(@Req() req, @Res() res) {
-        // req.user contains the profile data from GitHub
         const result = await this.authService.loginWithGithub(req.user);
 
-        // Redirect back to your Admin dashboard with the token
-        const redirectUrl = `${process.env.ADMIN_URL}/login-success?token=${result.access_token}`;
-        return res.redirect(redirectUrl);
+        // ✅ Set token in httpOnly cookie (secure)
+        res.cookie('access_token', result.access_token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 1000 * 60 * 60 * 8, // 8 hours
+            path: '/',
+        });
+
+        // ✅ Redirect WITHOUT exposing token in URL
+        return res.redirect(`${process.env.ADMIN_URL}/login-success`);
     }
 
     // --- NEW GITHUB ROUTES END HERE ---

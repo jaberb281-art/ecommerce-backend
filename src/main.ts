@@ -7,6 +7,10 @@ import express from 'express';
 
 const server = express();
 
+const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
+  .split(",")
+  .map(o => o.trim())
+  .filter(Boolean);
 // Track initialization to prevent re-bootstrapping on warm starts
 let isAppInitialized = false;
 
@@ -28,7 +32,21 @@ async function setupNestApp() {
     }),
   );
 
-  app.enableCors({ origin: true, credentials: true });
+  app.enableCors({
+    origin: (requestOrigin, callback) => {
+      // Allow server-to-server or tools like Postman
+      if (!requestOrigin) return callback(null, true);
+
+      if (allowedOrigins.includes(requestOrigin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked: ${requestOrigin}`));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  });
 
   const config = new DocumentBuilder()
     .setTitle('Shbash E-Commerce API')
