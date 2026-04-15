@@ -11,9 +11,9 @@ export class ShopSettingsService {
             update: {},
             create: {
                 id: 'singleton',
-                // ✅ Required field — was missing entirely
                 announcementSlides: [],
-                // ✅ These match the schema exactly
+                profileBannerImages: [],
+                profileCardTagline: 'Shbash Member',
                 heroTitle: 'Own Your Identity.',
                 heroSubtitle: 'Handcrafted phone cases. Limited drops. Express your culture.',
                 heroImageUrl: 'https://placeholder.com/hero.jpg',
