@@ -200,6 +200,8 @@ export class AuthService {
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.phone !== undefined && { phone: data.phone }),
+        // ADD THIS LINE:
+        ...(data.profileBg !== undefined && { profileBg: data.profileBg }),
       },
       include: {
         userBadges: {
@@ -213,4 +215,5 @@ export class AuthService {
     const { password, ...result } = user;
     return result;
   }
+
 }
