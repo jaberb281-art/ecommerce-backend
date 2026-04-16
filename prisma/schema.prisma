@@ -328,6 +328,7 @@ model ShopSettings {
   profileBannerImages  Json   @default("[]")
   profileCardTagline  String? @default("Shbash Member")
   dashboardMessage String @default("Default message here")
+  profileCardMessage String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
