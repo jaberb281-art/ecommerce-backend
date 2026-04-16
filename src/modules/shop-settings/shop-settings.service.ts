@@ -14,6 +14,7 @@ export class ShopSettingsService {
                 announcementSlides: [],
                 profileBannerImages: [],
                 profileCardTagline: 'Shbash Member',
+                profileCardMessage: 'Collect points to unlock exclusive rewards.',
                 heroTitle: 'Own Your Identity.',
                 heroSubtitle: 'Handcrafted phone cases. Limited drops. Express your culture.',
                 heroImageUrl: 'https://placeholder.com/hero.jpg',
@@ -29,6 +30,7 @@ export class ShopSettingsService {
         heroTitle?: string;
         heroSubtitle?: string;
         heroImageUrl?: string;
+        profileCardMessage?: string;
         heroButtonText?: string;
         heroButtonLink?: string;
         heroTagline?: string;
