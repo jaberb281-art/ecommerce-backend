@@ -108,4 +108,20 @@ export class AuthController {
     ) {
         return this.authService.updateProfile(req.user.id, body);
     }
+
+    @Post('forgot-password')
+    @Public()
+    @HttpCode(HttpStatus.OK)
+    async forgotPassword(@Body() body: { email: string }) {
+        await this.authService.forgotPassword(body.email);
+        return { message: 'If that email exists, a reset link has been sent.' };
+    }
+
+    @Post('reset-password')
+    @Public()
+    @HttpCode(HttpStatus.OK)
+    async resetPassword(@Body() body: { token: string; password: string }) {
+        await this.authService.resetPassword(body.token, body.password);
+        return { message: 'Password updated successfully.' };
+    }
 }

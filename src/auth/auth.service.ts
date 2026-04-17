@@ -216,4 +216,36 @@ export class AuthService {
     return result;
   }
 
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) return; // silent — don't leak whether email exists
+
+    const token = require('crypto').randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 min
+
+    await this.prisma.user.update({
+      where: { email },
+      data: { resetPasswordToken: token, resetPasswordExpires: expires },
+    });
+
+    await this.mailService.sendPasswordReset(user, token, 30);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpires: { gt: new Date() },
+      },
+    });
+
+    if (!user) throw new UnauthorizedException('Invalid or expired reset token');
+
+    const hashed = await bcrypt.hash(newPassword, 12);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashed, resetPasswordToken: null, resetPasswordExpires: null },
+    });
+  }
+
 }
