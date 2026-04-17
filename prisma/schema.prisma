@@ -4,8 +4,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url      = env("DATABASE_URL")
-  
+  url       = env("DATABASE_URL")   // Port 6543 (Pooler)
+  directUrl = env("DIRECT_URL")     // Port 5432 (Direct)
 }
 
 enum Role {
