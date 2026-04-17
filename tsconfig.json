@@ -31,7 +31,5 @@
         "./*"
       ]
     },
-    // 🔕 Temporary silence for deprecation (TS < 7 migration)
-    "ignoreDeprecations": "6.0"
   }
 }

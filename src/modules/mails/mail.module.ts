@@ -1,5 +1,5 @@
 import { MailerModule } from '@nestjs-modules/mailer';
-import { EjsAdapter } from '@nestjs-modules/mailer/dist/adapters/ejs.adapter';
+import { EjsAdapter } from '@nestjs-modules/mailer/adapters/ejs.adapter';
 import { Global, Module } from '@nestjs/common';
 import { MailService } from './mail.service';
 import { join } from 'path';
@@ -11,7 +11,7 @@ import { ConfigService } from '@nestjs/config';
         MailerModule.forRootAsync({
             useFactory: async (config: ConfigService) => ({
                 transport: {
-                    host: config.get('MAIL_HOST'), // e.g., smtp.resend.com
+                    host: config.get('MAIL_HOST'),
                     secure: false,
                     auth: {
                         user: config.get('MAIL_USER'),

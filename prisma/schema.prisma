@@ -32,6 +32,8 @@ model User {
   pointsBalance     Int                @default(0)
   pointTransactions PointTransaction[]
   profileBg         String?
+  resetPasswordToken   String?   @unique
+  resetPasswordExpires DateTime?
 }
 
 model Address {

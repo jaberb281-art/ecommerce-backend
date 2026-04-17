@@ -8,36 +8,31 @@ import {
     Get,
     UseGuards,
     Request,
-    Req, // Add Req
-    Res, // Add Res
+    Req,
+    Res,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport'; // Add this import
-
+import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-
+import { Public } from '../common/decorators/public.decorator';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
 interface JwtUser {
     id: string;
     email: string;
     role: string;
 }
-
 interface AuthenticatedRequest extends Request {
     user: JwtUser;
 }
-
 @ApiTags('auth')
 @Controller('auth')
 @UseGuards(ThrottlerGuard)
 export class AuthController {
     constructor(private authService: AuthService) { }
-
     @Post('register')
     @Throttle({ auth: { limit: 5, ttl: 60000 } })
     @ApiOperation({ summary: 'Register a new user account' })
@@ -96,22 +91,10 @@ export class AuthController {
     async getProfile(@Request() req: AuthenticatedRequest) {
         return this.authService.getProfile(req.user.id);
     }
-
-    @Patch('me')
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth()
-    @HttpCode(HttpStatus.OK)
-    @ApiOperation({ summary: 'Update current user profile' })
-    async updateProfile(
-        @Request() req: AuthenticatedRequest,
-        @Body() body: { name?: string; phone?: string; profileBg?: string },
-    ) {
-        return this.authService.updateProfile(req.user.id, body);
-    }
-
     @Post('forgot-password')
-    @Public()
+    @Public() // Accessible without being logged in
     @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Send password reset email' })
     async forgotPassword(@Body() body: { email: string }) {
         await this.authService.forgotPassword(body.email);
         return { message: 'If that email exists, a reset link has been sent.' };
@@ -120,8 +103,11 @@ export class AuthController {
     @Post('reset-password')
     @Public()
     @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Reset password with token' })
     async resetPassword(@Body() body: { token: string; password: string }) {
         await this.authService.resetPassword(body.token, body.password);
         return { message: 'Password updated successfully.' };
     }
+
+
 }

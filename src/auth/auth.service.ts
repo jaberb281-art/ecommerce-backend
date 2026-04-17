@@ -3,12 +3,14 @@ import {
   UnauthorizedException,
   ConflictException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from '../modules/mails/mail.service';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 export interface LoginDto {
   email: string;
@@ -34,140 +36,81 @@ export class AuthService {
     private mailService: MailService,
   ) { }
 
-  // --- UPDATED GITHUB LOGIN METHOD ---
   async loginWithGithub(githubUser: any) {
-    const { email, name, picture } = githubUser;
+    // FIX: Use fallback strings to avoid 'string | undefined' error
+    const email: string = githubUser.email ?? '';
+    const name: string = githubUser.name ?? 'Guest User';
+    const picture: string = githubUser.picture ?? '';
 
-    // 1. Check if user exists
+    if (!email) {
+      throw new BadRequestException('Email is required from GitHub provider');
+    }
+
     let user = await this.prisma.user.findUnique({
       where: { email },
     });
 
-    // 2. If not, create a new user
     if (!user) {
-      // Generate a random high-entropy string as a placeholder password
-      const placeholderPassword = Math.random().toString(36).slice(-16) + Date.now().toString();
-      const hashedPlaceholder = await bcrypt.hash(placeholderPassword, 10);
-
       user = await this.prisma.user.create({
         data: {
           email,
-          name: name || email.split('@')[0],
-          password: hashedPlaceholder, // Satisfies the @required constraint in Prisma
+          name,
+          profileBg: picture,
+          password: await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 12),
         },
       });
-
-      // Optional: Send welcome email to new GitHub users
-      // try {
-      //   await this.mailService.sendWelcomeEmail(user);
-      // } catch (error) {
-      //   console.error('Failed to send welcome email to GitHub user:', error);
-      // }
+      await this.mailService.sendWelcomeEmail(user);
     }
 
-    // 3. Generate JWT
-    const payload = { sub: user.id, email: user.email, role: user.role };
-
-    return {
-      access_token: this.jwtService.sign(payload),
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-    };
-  }
-  async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
-
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    const passwordToCompare = user?.password ?? DUMMY_HASH;
-    const isPasswordValid = await bcrypt.compare(password, passwordToCompare);
-
-    if (!user || !isPasswordValid) {
-      throw new UnauthorizedException({
-        code: 'INVALID_CREDENTIALS',
-        message: 'Invalid email or password',
-      });
-    }
-
-    const payload = { sub: user.id, email: user.email, role: user.role };
-
-    return {
-      access_token: this.jwtService.sign(payload),
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-    };
+    return this.generateTokens(user);
   }
 
-  async register(registerDto: RegisterDto) {
-    const { email, password, name, phone, username } = registerDto;
+  async register(dto: RegisterDto) {
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (existing) throw new ConflictException('Email already registered');
 
-    const existingEmail = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existingEmail) {
-      throw new ConflictException({
-        code: 'EMAIL_ALREADY_EXISTS',
-        message: 'An account with this email already exists',
-      });
-    }
-
-    if (username) {
-      const existingUsername = await this.prisma.user.findUnique({
-        where: { username },
-      });
-
-      if (existingUsername) {
-        throw new ConflictException({
-          code: 'USERNAME_ALREADY_EXISTS',
-          message: 'This username is already taken',
-        });
-      }
-    }
-
-    const saltRounds = parseInt(this.configService.get<string>('BCRYPT_ROUNDS', '10'), 10);
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
+    const hashedPassword = await bcrypt.hash(dto.password, 12);
     const user = await this.prisma.user.create({
       data: {
-        email,
+        email: dto.email,
         password: hashedPassword,
-        name,
-        phone,
-        username,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        username: true,
-        role: true,
-        createdAt: true,
+        name: dto.name ?? '',
+        phone: dto.phone ?? '',
+        username: dto.username ?? dto.email.split('@')[0],
       },
     });
 
-    // try {
-    //   await this.mailService.sendWelcomeEmail(user);
-    // } catch (error) {
-    //   console.error('Failed to send welcome email:', error);
-    // }
+    await this.mailService.sendWelcomeEmail(user);
+    return this.generateTokens(user);
+  }
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
+  async login(dto: LoginDto) {
+    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
 
+    // Timing attack protection
+    const passwordToCompare = user ? user.password : DUMMY_HASH;
+    const isPasswordValid = await bcrypt.compare(dto.password, passwordToCompare);
+
+    if (!user || !isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    return this.generateTokens(user);
+  }
+
+  private generateTokens(user: any) {
+    const payload = { sub: user.id, email: user.email };
     return {
-      access_token: this.jwtService.sign(payload),
-      user,
+      access_token: this.jwtService.sign(payload, {
+        // FIX: Non-null assertion for environment variable
+        secret: this.configService.get<string>('JWT_SECRET')!,
+        expiresIn: '7d',
+      }),
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      }
     };
   }
 
@@ -175,21 +118,10 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
-        userBadges: {
-          include: {
-            badge: true
-          }
-        }
-      }
+        userBadges: { include: { badge: true } },
+      },
     });
-
-    if (!user) {
-      throw new NotFoundException({
-        code: 'USER_NOT_FOUND',
-        message: 'User profile not found',
-      });
-    }
-
+    if (!user) throw new NotFoundException('User not found');
     const { password, ...result } = user;
     return result;
   }
@@ -200,16 +132,11 @@ export class AuthService {
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.phone !== undefined && { phone: data.phone }),
-        // ADD THIS LINE:
         ...(data.profileBg !== undefined && { profileBg: data.profileBg }),
       },
       include: {
-        userBadges: {
-          include: {
-            badge: true
-          }
-        }
-      }
+        userBadges: { include: { badge: true } },
+      },
     });
 
     const { password, ...result } = user;
@@ -218,10 +145,10 @@ export class AuthService {
 
   async forgotPassword(email: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) return; // silent — don't leak whether email exists
+    if (!user) return;
 
-    const token = require('crypto').randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 min
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 30 * 60 * 1000);
 
     await this.prisma.user.update({
       where: { email },
@@ -244,8 +171,11 @@ export class AuthService {
     const hashed = await bcrypt.hash(newPassword, 12);
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { password: hashed, resetPasswordToken: null, resetPasswordExpires: null },
+      data: {
+        password: hashed,
+        resetPasswordToken: null,
+        resetPasswordExpires: null
+      },
     });
   }
-
 }
