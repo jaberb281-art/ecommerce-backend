@@ -10,6 +10,7 @@ import {
     Request,
     Req,
     Res,
+    UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -19,6 +20,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import * as bcrypt from 'bcrypt';
+import { IsOptional, IsString, MinLength, MaxLength, Matches } from 'class-validator';
 
 interface JwtUser {
     id: string;
@@ -28,11 +31,43 @@ interface JwtUser {
 interface AuthenticatedRequest extends Request {
     user: JwtUser;
 }
+
+class UpdateProfileDto {
+    @IsOptional()
+    @IsString()
+    @MinLength(2)
+    @MaxLength(50)
+    name?: string;
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(20)
+    phone?: string;
+
+    @IsOptional()
+    @IsString()
+    profileBg?: string;
+}
+
+class ChangePasswordDto {
+    @IsString()
+    currentPassword: string;
+
+    @IsString()
+    @MinLength(8, { message: 'Password must be at least 8 characters' })
+    @MaxLength(64)
+    @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
+        message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+    })
+    newPassword: string;
+}
+
 @ApiTags('auth')
 @Controller('auth')
 @UseGuards(ThrottlerGuard)
 export class AuthController {
     constructor(private authService: AuthService) { }
+
     @Post('register')
     @Throttle({ auth: { limit: 5, ttl: 60000 } })
     @ApiOperation({ summary: 'Register a new user account' })
@@ -48,7 +83,7 @@ export class AuthController {
         return this.authService.login(loginDto);
     }
 
-    // --- NEW GITHUB ROUTES START HERE ---
+    // ─── GitHub OAuth ───────────────────────────────────────────────────────
 
     @Get('github')
     @UseGuards(AuthGuard('github'))
@@ -62,20 +97,18 @@ export class AuthController {
     async githubAuthRedirect(@Req() req, @Res() res) {
         const result = await this.authService.loginWithGithub(req.user);
 
-        // ✅ Set token in httpOnly cookie (secure)
         res.cookie('access_token', result.access_token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
-            maxAge: 1000 * 60 * 60 * 8, // 8 hours
+            maxAge: 1000 * 60 * 60 * 8,
             path: '/',
         });
 
-        // ✅ Redirect WITHOUT exposing token in URL
         return res.redirect(`${process.env.ADMIN_URL}/login-success`);
     }
 
-    // --- NEW GITHUB ROUTES END HERE ---
+    // ─── Session ────────────────────────────────────────────────────────────
 
     @Post('logout')
     @HttpCode(HttpStatus.OK)
@@ -91,8 +124,44 @@ export class AuthController {
     async getProfile(@Request() req: AuthenticatedRequest) {
         return this.authService.getProfile(req.user.id);
     }
+
+    /**
+     * PATCH /api/auth/me
+     * Updates the current user's profile (name, phone, profileBg).
+     * Used by the storefront profile page.
+     */
+    @Patch('me')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Update current user profile' })
+    async updateProfile(
+        @Request() req: AuthenticatedRequest,
+        @Body() body: UpdateProfileDto,
+    ) {
+        return this.authService.updateProfile(req.user.id, body);
+    }
+
+    /**
+     * PATCH /api/auth/me/password
+     * Allows a logged-in user to change their own password by supplying
+     * their current password for verification.
+     */
+    @Patch('me/password')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Change password (requires current password)' })
+    async changePassword(
+        @Request() req: AuthenticatedRequest,
+        @Body() body: ChangePasswordDto,
+    ) {
+        return this.authService.changePassword(req.user.id, body.currentPassword, body.newPassword);
+    }
+
+    // ─── Password Reset ──────────────────────────────────────────────────────
+
     @Post('forgot-password')
-    @Public() // Accessible without being logged in
+    @Public()
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Send password reset email' })
     async forgotPassword(@Body() body: { email: string }) {
@@ -108,6 +177,4 @@ export class AuthController {
         await this.authService.resetPassword(body.token, body.password);
         return { message: 'Password updated successfully.' };
     }
-
-
 }

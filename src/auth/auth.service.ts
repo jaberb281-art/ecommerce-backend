@@ -156,6 +156,31 @@ export class AuthService {
         userBadges: { include: { badge: true } },
       },
     });
+    async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+ 
+    const isValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+ 
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        tokenVersion: { increment: 1 }, // Invalidates all existing sessions
+      },
+    });
+ 
+    return { message: 'Password updated successfully' };
+  }
+ 
 
     // Issue 5: Stripping sensitive reset tokens
     const { password, resetPasswordToken, resetPasswordExpires, ...result } = user;
