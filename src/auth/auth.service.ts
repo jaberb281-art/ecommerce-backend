@@ -114,10 +114,10 @@ export class AuthService {
     };
     
     return {
-      access_token: this.jwtService.sign(payload, {
-        secret: this.configService.get<string>('JWT_SECRET')!,
-        expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') || '24h',
-      }),
+access_token: this.jwtService.sign(payload, {
+  secret: this.configService.get<string>('JWT_SECRET'),
+  expiresIn: (this.configService.get<string>('JWT_EXPIRES_IN') as any) || '24h',
+  }),
       user: {
         id: user.id,
         email: user.email,
