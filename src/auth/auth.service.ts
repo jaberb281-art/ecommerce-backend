@@ -4,11 +4,13 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from '../modules/mails/mail.service';
+import { User } from '@prisma/client'; // Issue 4: Import real User type
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -25,10 +27,12 @@ export interface RegisterDto {
   username?: string;
 }
 
-const DUMMY_HASH = '$2b$10$dummyhashusedtopreventtimingattacksforthistoken123456789';
+const DUMMY_HASH = '$2b$12$L8v8R6G5U6f7H8j9K0m1n2o3p4q5r6s7t8u9v0w1x2y3z4a5b6c7d';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name); // Issue 6: Added logger
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -37,7 +41,6 @@ export class AuthService {
   ) { }
 
   async loginWithGithub(githubUser: any) {
-    // FIX: Use fallback strings to avoid 'string | undefined' error
     const email: string = githubUser.email ?? '';
     const name: string = githubUser.name ?? 'Guest User';
     const picture: string = githubUser.picture ?? '';
@@ -56,10 +59,13 @@ export class AuthService {
           email,
           name,
           profileBg: picture,
-          password: await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 12),
+          password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12),
         },
       });
-      await this.mailService.sendWelcomeEmail(user);
+      // Issue 6: Fire-and-forget email
+      this.mailService.sendWelcomeEmail(user).catch(err => 
+        this.logger.error(`Welcome email failed for ${user?.email}`, err)
+      );
     }
 
     return this.generateTokens(user);
@@ -80,14 +86,17 @@ export class AuthService {
       },
     });
 
-    await this.mailService.sendWelcomeEmail(user);
+    // Issue 6: Fire-and-forget email
+    this.mailService.sendWelcomeEmail(user).catch(err => 
+      this.logger.error(`Welcome email failed for ${user.email}`, err)
+    );
+    
     return this.generateTokens(user);
   }
 
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
 
-    // Timing attack protection
     const passwordToCompare = user ? user.password : DUMMY_HASH;
     const isPasswordValid = await bcrypt.compare(dto.password, passwordToCompare);
 
@@ -98,18 +107,25 @@ export class AuthService {
     return this.generateTokens(user);
   }
 
-  private generateTokens(user: any) {
-    const payload = { sub: user.id, email: user.email };
+  // Issue 4: Replaced 'any' with Prisma 'User' type
+  private generateTokens(user: User) {
+    const payload = { 
+      sub: user.id, 
+      email: user.email, 
+      role: user.role, 
+      version: user.tokenVersion 
+    };
+    
     return {
       access_token: this.jwtService.sign(payload, {
-        // FIX: Non-null assertion for environment variable
         secret: this.configService.get<string>('JWT_SECRET')!,
-        expiresIn: '7d',
+        expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') || '24h',
       }),
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role
       }
     };
   }
@@ -122,7 +138,9 @@ export class AuthService {
       },
     });
     if (!user) throw new NotFoundException('User not found');
-    const { password, ...result } = user;
+    
+    // Issue 5: Stripping sensitive reset tokens from profile response
+    const { password, resetPasswordToken, resetPasswordExpires, ...result } = user;
     return result;
   }
 
@@ -139,42 +157,55 @@ export class AuthService {
       },
     });
 
-    const { password, ...result } = user;
+    // Issue 5: Stripping sensitive reset tokens
+    const { password, resetPasswordToken, resetPasswordExpires, ...result } = user;
     return result;
   }
 
   async forgotPassword(email: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) return;
+    
+    // Issue 1: Fix timing leak with dummy work for non-existent users
+    if (!user) {
+      await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
+      return;
+    }
 
-    const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 30 * 60 * 1000);
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expires = new Date(Date.now() + 30 * 60 * 1000); 
 
     await this.prisma.user.update({
       where: { email },
-      data: { resetPasswordToken: token, resetPasswordExpires: expires },
+      data: { resetPasswordToken: hashedToken, resetPasswordExpires: expires },
     });
 
-    await this.mailService.sendPasswordReset(user, token, 30);
+    // Issue 6: Fire-and-forget email
+    this.mailService.sendPasswordReset(user, rawToken, 30).catch(err => 
+      this.logger.error(`Password reset email failed for ${email}`, err)
+    );
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
     const user = await this.prisma.user.findFirst({
       where: {
-        resetPasswordToken: token,
+        resetPasswordToken: hashedToken,
         resetPasswordExpires: { gt: new Date() },
       },
     });
 
     if (!user) throw new UnauthorizedException('Invalid or expired reset token');
 
-    const hashed = await bcrypt.hash(newPassword, 12);
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
-        password: hashed,
+        password: hashedPassword,
         resetPasswordToken: null,
-        resetPasswordExpires: null
+        resetPasswordExpires: null,
+        tokenVersion: { increment: 1 } 
       },
     });
   }
