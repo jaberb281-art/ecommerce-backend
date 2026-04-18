@@ -10,7 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from '../modules/mails/mail.service';
-import { User } from '@prisma/client'; // Issue 4: Import real User type
+import { User } from '@prisma/client'; 
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -31,7 +31,7 @@ const DUMMY_HASH = '$2b$12$L8v8R6G5U6f7H8j9K0m1n2o3p4q5r6s7t8u9v0w1x2y3z4a5b6c7d
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name); // Issue 6: Added logger
+  private readonly logger = new Logger(AuthService.name);
 
   constructor(
     private prisma: PrismaService,
@@ -62,7 +62,6 @@ export class AuthService {
           password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12),
         },
       });
-      // Issue 6: Fire-and-forget email
       this.mailService.sendWelcomeEmail(user).catch(err => 
         this.logger.error(`Welcome email failed for ${user?.email}`, err)
       );
@@ -86,7 +85,6 @@ export class AuthService {
       },
     });
 
-    // Issue 6: Fire-and-forget email
     this.mailService.sendWelcomeEmail(user).catch(err => 
       this.logger.error(`Welcome email failed for ${user.email}`, err)
     );
@@ -107,7 +105,6 @@ export class AuthService {
     return this.generateTokens(user);
   }
 
-  // Issue 4: Replaced 'any' with Prisma 'User' type
   private generateTokens(user: User) {
     const payload = { 
       sub: user.id, 
@@ -139,7 +136,6 @@ export class AuthService {
     });
     if (!user) throw new NotFoundException('User not found');
     
-    // Issue 5: Stripping sensitive reset tokens from profile response
     const { password, resetPasswordToken, resetPasswordExpires, ...result } = user;
     return result;
   }
@@ -156,7 +152,12 @@ export class AuthService {
         userBadges: { include: { badge: true } },
       },
     });
-    async changePassword(
+
+    const { password, resetPasswordToken, resetPasswordExpires, ...result } = user;
+    return result;
+  }
+
+  async changePassword(
     userId: string,
     currentPassword: string,
     newPassword: string,
@@ -174,23 +175,16 @@ export class AuthService {
       where: { id: userId },
       data: {
         password: hashedPassword,
-        tokenVersion: { increment: 1 }, // Invalidates all existing sessions
+        tokenVersion: { increment: 1 },
       },
     });
  
     return { message: 'Password updated successfully' };
   }
- 
-
-    // Issue 5: Stripping sensitive reset tokens
-    const { password, resetPasswordToken, resetPasswordExpires, ...result } = user;
-    return result;
-  }
 
   async forgotPassword(email: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     
-    // Issue 1: Fix timing leak with dummy work for non-existent users
     if (!user) {
       await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
       return;
@@ -205,7 +199,6 @@ export class AuthService {
       data: { resetPasswordToken: hashedToken, resetPasswordExpires: expires },
     });
 
-    // Issue 6: Fire-and-forget email
     this.mailService.sendPasswordReset(user, rawToken, 30).catch(err => 
       this.logger.error(`Password reset email failed for ${email}`, err)
     );
