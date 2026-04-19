@@ -10,6 +10,7 @@ import {
     Request,
     Req,
     Res,
+    UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -19,6 +20,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import * as bcrypt from 'bcrypt';
 import { IsOptional, IsString, MinLength, MaxLength, Matches } from 'class-validator';
 
 interface JwtUser {
@@ -66,10 +68,7 @@ class ChangePasswordDto {
 export class AuthController {
     constructor(private authService: AuthService) { }
 
-    // ─── Public routes — no JWT token required ───────────────────────────────
-
     @Post('register')
-    @Public()                                        // ← FIX: was missing
     @Throttle({ auth: { limit: 5, ttl: 60000 } })
     @ApiOperation({ summary: 'Register a new user account' })
     async register(@Body() registerDto: RegisterDto) {
@@ -77,13 +76,89 @@ export class AuthController {
     }
 
     @Post('login')
-    @Public()                                        // ← FIX: was missing
     @HttpCode(HttpStatus.OK)
     @Throttle({ auth: { limit: 5, ttl: 60000 } })
     @ApiOperation({ summary: 'Login and receive an access token' })
     async login(@Body() loginDto: LoginDto) {
         return this.authService.login(loginDto);
     }
+
+    // ─── GitHub OAuth ───────────────────────────────────────────────────────
+
+    @Get('github')
+    @UseGuards(AuthGuard('github'))
+    @ApiOperation({ summary: 'Initiate GitHub OAuth login' })
+    async githubAuth(@Req() req) {
+        // Guard handles the redirect to GitHub
+    }
+
+    @Get('callback/github')
+    @UseGuards(AuthGuard('github'))
+    async githubAuthRedirect(@Req() req, @Res() res) {
+        const result = await this.authService.loginWithGithub(req.user);
+
+        res.cookie('access_token', result.access_token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 1000 * 60 * 60 * 8,
+            path: '/',
+        });
+
+        return res.redirect(`${process.env.ADMIN_URL}/login-success`);
+    }
+
+    // ─── Session ────────────────────────────────────────────────────────────
+
+    @Post('logout')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Logout user (client deletes token)' })
+    logout() {
+        return { message: 'Logged out successfully' };
+    }
+
+    @Get('me')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Get current logged-in user profile' })
+    async getProfile(@Request() req: AuthenticatedRequest) {
+        return this.authService.getProfile(req.user.id);
+    }
+
+    /**
+     * PATCH /api/auth/me
+     * Updates the current user's profile (name, phone, profileBg).
+     * Used by the storefront profile page.
+     */
+    @Patch('me')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Update current user profile' })
+    async updateProfile(
+        @Request() req: AuthenticatedRequest,
+        @Body() body: UpdateProfileDto,
+    ) {
+        return this.authService.updateProfile(req.user.id, body);
+    }
+
+    /**
+     * PATCH /api/auth/me/password
+     * Allows a logged-in user to change their own password by supplying
+     * their current password for verification.
+     */
+    @Patch('me/password')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Change password (requires current password)' })
+    async changePassword(
+        @Request() req: AuthenticatedRequest,
+        @Body() body: ChangePasswordDto,
+    ) {
+        return this.authService.changePassword(req.user.id, body.currentPassword, body.newPassword);
+    }
+
+    // ─── Password Reset ──────────────────────────────────────────────────────
 
     @Post('forgot-password')
     @Public()
@@ -101,69 +176,5 @@ export class AuthController {
     async resetPassword(@Body() body: { token: string; password: string }) {
         await this.authService.resetPassword(body.token, body.password);
         return { message: 'Password updated successfully.' };
-    }
-
-    @Post('logout')
-    @Public()
-    @HttpCode(HttpStatus.OK)
-    @ApiOperation({ summary: 'Logout user (client deletes token)' })
-    logout() {
-        return { message: 'Logged out successfully' };
-    }
-
-    // ─── GitHub OAuth ────────────────────────────────────────────────────────
-
-    @Get('github')
-    @Public()
-    @UseGuards(AuthGuard('github'))
-    @ApiOperation({ summary: 'Initiate GitHub OAuth login' })
-    async githubAuth(@Req() req) { }
-
-    @Get('callback/github')
-    @Public()
-    @UseGuards(AuthGuard('github'))
-    async githubAuthRedirect(@Req() req, @Res() res) {
-        const result = await this.authService.loginWithGithub(req.user);
-        res.cookie('access_token', result.access_token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 1000 * 60 * 60 * 8,
-            path: '/',
-        });
-        return res.redirect(`${process.env.ADMIN_URL}/login-success`);
-    }
-
-    // ─── Authenticated routes — JWT token required ───────────────────────────
-
-    @Get('me')
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth()
-    @ApiOperation({ summary: 'Get current logged-in user profile' })
-    async getProfile(@Request() req: AuthenticatedRequest) {
-        return this.authService.getProfile(req.user.id);
-    }
-
-    @Patch('me')
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth()
-    @ApiOperation({ summary: 'Update current user profile' })
-    async updateProfile(
-        @Request() req: AuthenticatedRequest,
-        @Body() body: UpdateProfileDto,
-    ) {
-        return this.authService.updateProfile(req.user.id, body);
-    }
-
-    @Patch('me/password')
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth()
-    @HttpCode(HttpStatus.OK)
-    @ApiOperation({ summary: 'Change password (requires current password)' })
-    async changePassword(
-        @Request() req: AuthenticatedRequest,
-        @Body() body: ChangePasswordDto,
-    ) {
-        return this.authService.changePassword(req.user.id, body.currentPassword, body.newPassword);
     }
 }
