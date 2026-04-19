@@ -10,7 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from '../modules/mails/mail.service';
-import { User } from '@prisma/client'; 
+import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -62,7 +62,7 @@ export class AuthService {
           password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12),
         },
       });
-      this.mailService.sendWelcomeEmail(user).catch(err => 
+      this.mailService.sendWelcomeEmail(user).catch(err =>
         this.logger.error(`Welcome email failed for ${user?.email}`, err)
       );
     }
@@ -85,10 +85,10 @@ export class AuthService {
       },
     });
 
-    this.mailService.sendWelcomeEmail(user).catch(err => 
+    this.mailService.sendWelcomeEmail(user).catch(err =>
       this.logger.error(`Welcome email failed for ${user.email}`, err)
     );
-    
+
     return this.generateTokens(user);
   }
 
@@ -106,18 +106,17 @@ export class AuthService {
   }
 
   private generateTokens(user: User) {
-    const payload = { 
-      sub: user.id, 
-      email: user.email, 
-      role: user.role, 
-      version: user.tokenVersion 
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      version: user.tokenVersion
     };
-    
+
     return {
-access_token: this.jwtService.sign(payload, {
-  secret: this.configService.get<string>('JWT_SECRET'),
-  expiresIn: (this.configService.get<string>('JWT_EXPIRES_IN') as any) || '24h',
-  }),
+      access_token: this.jwtService.sign(payload, {
+        expiresIn: (this.configService.get<string>('JWT_EXPIRES_IN') as any) || '24h',
+      }),
       user: {
         id: user.id,
         email: user.email,
@@ -135,7 +134,7 @@ access_token: this.jwtService.sign(payload, {
       },
     });
     if (!user) throw new NotFoundException('User not found');
-    
+
     const { password, resetPasswordToken, resetPasswordExpires, ...result } = user;
     return result;
   }
@@ -164,12 +163,12 @@ access_token: this.jwtService.sign(payload, {
   ): Promise<{ message: string }> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
- 
+
     const isValid = await bcrypt.compare(currentPassword, user.password);
     if (!isValid) {
       throw new UnauthorizedException('Current password is incorrect');
     }
- 
+
     const hashedPassword = await bcrypt.hash(newPassword, 12);
     await this.prisma.user.update({
       where: { id: userId },
@@ -178,13 +177,13 @@ access_token: this.jwtService.sign(payload, {
         tokenVersion: { increment: 1 },
       },
     });
- 
+
     return { message: 'Password updated successfully' };
   }
 
   async forgotPassword(email: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { email } });
-    
+
     if (!user) {
       await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12);
       return;
@@ -192,14 +191,14 @@ access_token: this.jwtService.sign(payload, {
 
     const rawToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
-    const expires = new Date(Date.now() + 30 * 60 * 1000); 
+    const expires = new Date(Date.now() + 30 * 60 * 1000);
 
     await this.prisma.user.update({
       where: { email },
       data: { resetPasswordToken: hashedToken, resetPasswordExpires: expires },
     });
 
-    this.mailService.sendPasswordReset(user, rawToken, 30).catch(err => 
+    this.mailService.sendPasswordReset(user, rawToken, 30).catch(err =>
       this.logger.error(`Password reset email failed for ${email}`, err)
     );
   }
@@ -223,7 +222,7 @@ access_token: this.jwtService.sign(payload, {
         password: hashedPassword,
         resetPasswordToken: null,
         resetPasswordExpires: null,
-        tokenVersion: { increment: 1 } 
+        tokenVersion: { increment: 1 }
       },
     });
   }

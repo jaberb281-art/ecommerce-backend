@@ -16,7 +16,21 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
 // Track initialization using a Promise to prevent race conditions on Vercel cold starts
 let appPromise: Promise<void> | null = null;
 
+const REQUIRED_ENV_VARS = ['JWT_SECRET', 'DATABASE_URL'] as const;
+
+function validateEnv() {
+  const missing = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
+  if (missing.length > 0) {
+    throw new Error(
+      `[Startup] Missing required environment variables: ${missing.join(', ')}. ` +
+      'The application cannot start safely without these values.',
+    );
+  }
+}
+
 async function bootstrap() {
+  validateEnv();
+
   const app = await NestFactory.create(
     AppModule,
     new ExpressAdapter(server),
@@ -39,7 +53,7 @@ async function bootstrap() {
   app.enableCors({
     origin: (requestOrigin, callback) => {
       const isDev = process.env.NODE_ENV !== 'production';
-      
+
       // Only allow requests with no origin (like Postman/Server-side) in Development
       if (!requestOrigin) return callback(null, isDev);
 
