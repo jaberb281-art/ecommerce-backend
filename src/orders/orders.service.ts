@@ -476,7 +476,6 @@ export class OrdersService {
                         },
                     },
                 },
-                address: true,
             },
         });
 
@@ -484,6 +483,18 @@ export class OrdersService {
             throw new NotFoundException('Order not found');
         }
 
-        return order;
+        // Return only tracking-relevant fields — no customer PII
+        return {
+            id: order.id,
+            status: order.status,
+            createdAt: order.createdAt,
+            updatedAt: order.updatedAt,
+            items: order.items.map((item) => ({
+                productId: item.productId,
+                name: item.product.name,
+                images: item.product.images,
+                quantity: item.quantity,
+            })),
+        };
     }
 }

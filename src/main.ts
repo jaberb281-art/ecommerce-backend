@@ -16,7 +16,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
 // Track initialization using a Promise to prevent race conditions on Vercel cold starts
 let appPromise: Promise<void> | null = null;
 
-const REQUIRED_ENV_VARS = ['JWT_SECRET', 'DATABASE_URL'] as const;
+const REQUIRED_ENV_VARS = ['JWT_SECRET', 'DATABASE_URL', 'ADMIN_URL'] as const;
 
 function validateEnv() {
   const missing = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);

@@ -105,7 +105,13 @@ export class AuthController {
             path: '/',
         });
 
-        return res.redirect(`${process.env.ADMIN_URL}/login-success`);
+        const adminUrl = process.env.ADMIN_URL;
+        if (!adminUrl) {
+            throw new Error('[GitHub OAuth] ADMIN_URL environment variable is not set');
+        }
+        // Use URL constructor to prevent open-redirect via path traversal
+        const redirectTo = new URL('/login-success', adminUrl).toString();
+        return res.redirect(redirectTo);
     }
 
     // ─── Session ────────────────────────────────────────────────────────────
