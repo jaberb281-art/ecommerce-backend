@@ -10,6 +10,7 @@ import {
     BadRequestException
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { IMAGE_UPLOAD_OPTIONS } from '../../common/upload.options';
 import { ShopSettingsService } from './shop-settings.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -38,7 +39,7 @@ export class ShopSettingsController {
     @Post('upload-hero')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('ADMIN')
-    @UseInterceptors(FileInterceptor('file'))
+    @UseInterceptors(FileInterceptor('file', IMAGE_UPLOAD_OPTIONS))
     async uploadHeroImage(@UploadedFile() file: Express.Multer.File) {
         if (!file) {
             throw new BadRequestException('No image file provided');

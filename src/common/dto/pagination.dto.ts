@@ -29,14 +29,7 @@ export class PaginationDto {
     @IsOptional()
     search?: string;
 
-    @ApiPropertyOptional({ description: 'Filter by status (ACTIVE, DRAFT, ARCHIVED)' })
-    @IsString()
-    @IsOptional()
-    status?: string;
-
-    @ApiPropertyOptional({ description: 'Admin mode — bypass status filter' })
-    @IsOptional()
-    @Transform(({ value }) => value === 'true' || value === true)
-    @IsBoolean()
-    adminMode?: boolean;
+    // Note: status and adminMode are intentionally NOT exposed here.
+    // Public callers always receive ACTIVE products only.
+    // Admin product listing uses GET /products/admin/all (guarded endpoint).
 }

@@ -1,24 +1,30 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-github2';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
-    constructor() {
-        super({
-            clientID: 'Ov23liwh0pUPL1zRXa7y',
-            clientSecret: '25d22fec2e3cd8d3fa080d72c7ce8a13b64c01ed',
-            callbackURL: 'https://ecommerce-backend-cqoc.vercel.app/api/auth/callback/github',
-            scope: ['user:email'],
-        });
+    constructor(configService: ConfigService) {
+        const clientID = configService.get<string>('GITHUB_CLIENT_ID');
+        const clientSecret = configService.get<string>('GITHUB_CLIENT_SECRET');
+        const callbackURL = configService.get<string>('GITHUB_CALLBACK_URL');
+
+        if (!clientID || !clientSecret || !callbackURL) {
+            throw new Error(
+                'Missing GitHub OAuth config. Set GITHUB_CLIENT_ID, ' +
+                'GITHUB_CLIENT_SECRET, and GITHUB_CALLBACK_URL in your environment.',
+            );
+        }
+
+        super({ clientID, clientSecret, callbackURL, scope: ['user:email'] });
     }
 
-    async validate(accessToken: string, refreshToken: string, profile: any) {
-        const { username, emails, photos } = profile;
+    async validate(accessToken: string, _refreshToken: string, profile: any) {
         return {
-            email: emails[0].value,
-            name: username,
-            picture: photos[0]?.value || null,
+            email: profile.emails?.[0]?.value ?? null,
+            name: profile.username,
+            picture: profile.photos?.[0]?.value ?? null,
             accessToken,
         };
     }

@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { IMAGE_UPLOAD_OPTIONS } from '../common/upload.options';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Request } from '@nestjs/common';
@@ -41,7 +42,7 @@ export class BadgesController {
     }
 
     @Post('upload-image')
-    @UseInterceptors(FileInterceptor('file'))
+    @UseInterceptors(FileInterceptor('file', IMAGE_UPLOAD_OPTIONS))
     @ApiOperation({ summary: 'Upload badge image' })
     async uploadImage(@UploadedFile() file: Express.Multer.File) {
         if (!file) throw new BadRequestException('No file uploaded')
@@ -70,11 +71,13 @@ export class BadgesController {
     @Post(':id/award/:userId')
     @ApiOperation({ summary: 'Award badge to user' })
     award(
+        @Request() req,
         @Param('id') badgeId: string,
         @Param('userId') userId: string,
-        @Body() body: { awardedBy: string; note?: string },
+        @Body() body: { note?: string },
     ) {
-        return this.badgesService.awardToUser(badgeId, userId, body.awardedBy, body.note)
+        // Use the authenticated admin's ID — never trust a client-supplied awardedBy
+        return this.badgesService.awardToUser(badgeId, userId, req.user.id, body.note)
     }
 
     @Delete(':id/revoke/:userId')

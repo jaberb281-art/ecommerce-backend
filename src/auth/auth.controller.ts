@@ -97,21 +97,29 @@ export class AuthController {
     async githubAuthRedirect(@Req() req, @Res() res) {
         const result = await this.authService.loginWithGithub(req.user);
 
-        res.cookie('access_token', result.access_token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 1000 * 60 * 60 * 8,
-            path: '/',
-        });
-
         const adminUrl = process.env.ADMIN_URL;
         if (!adminUrl) {
             throw new Error('[GitHub OAuth] ADMIN_URL environment variable is not set');
         }
-        // Use URL constructor to prevent open-redirect via path traversal
-        const redirectTo = new URL('/login-success', adminUrl).toString();
-        return res.redirect(redirectTo);
+
+        // Generate a short-lived exchange ticket instead of setting a cookie directly
+        const exchangeToken = await this.authService.createExchangeToken(result.access_token);
+
+        // Redirect to admin login-success with the ticket
+        const redirectTo = new URL('/login-success', adminUrl);
+        redirectTo.searchParams.set('ticket', exchangeToken);
+
+        return res.redirect(redirectTo.toString());
+    }
+
+    @Post('github/exchange')
+    @Public()
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Exchange GitHub ticket for real access token' })
+    async exchangeGithubTicket(@Body() body: { ticket: string }) {
+        // Implement `exchangeTicket` in your AuthService to validate the ticket,
+        // burn it so it can't be reused, and return the actual user data and access_token.
+        return this.authService.exchangeTicket(body.ticket);
     }
 
     // ─── Session ────────────────────────────────────────────────────────────
@@ -131,11 +139,6 @@ export class AuthController {
         return this.authService.getProfile(req.user.id);
     }
 
-    /**
-     * PATCH /api/auth/me
-     * Updates the current user's profile (name, phone, profileBg).
-     * Used by the storefront profile page.
-     */
     @Patch('me')
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
@@ -147,11 +150,6 @@ export class AuthController {
         return this.authService.updateProfile(req.user.id, body);
     }
 
-    /**
-     * PATCH /api/auth/me/password
-     * Allows a logged-in user to change their own password by supplying
-     * their current password for verification.
-     */
     @Patch('me/password')
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()

@@ -15,7 +15,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role, OrderStatus } from '@prisma/client';
-import { ApiBearerAuth, ApiTags, ApiOkResponse, ApiQuery, ApiHeader, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiOkResponse, ApiQuery, ApiHeader, ApiPropertyOptional, ApiOperation } from '@nestjs/swagger';
 import { OrderResponseDto } from './dto/order-response.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { AdminStatsResponse } from './orders.types';
@@ -166,12 +166,16 @@ export class OrdersController {
     }
 
     // -------------------------------------------------------------------------
-    // GET /orders/track/:id  — Public, no auth required
+    // GET /orders/track  — Public, no auth required
+    // Requires both order id and email to prevent enumeration
     // -------------------------------------------------------------------------
-    @Get('track/:id')
+    @Get('track')
     @Public()
-    async trackOrder(@Param('id') id: string) {
-        return this.ordersService.trackOrder(id);
+    async trackOrder(
+        @Query('id') id: string,
+        @Query('email') email: string,
+    ) {
+        return this.ordersService.trackOrder(id, email);
     }
 
     // -------------------------------------------------------------------------
@@ -184,6 +188,19 @@ export class OrdersController {
         @Param('id') id: string,
     ) {
         return this.ordersService.getMyOrder(req.user.id, id);
+    }
+
+    // -------------------------------------------------------------------------
+    // PATCH /orders/:id/cancel  — Customer cancels their own pending order
+    // -------------------------------------------------------------------------
+    @Patch(':id/cancel')
+    @ApiOkResponse({ type: OrderResponseDto })
+    @ApiOperation({ summary: 'Cancel own order (only allowed when status is PENDING)' })
+    async cancelMyOrder(
+        @Request() req,
+        @Param('id') id: string,
+    ) {
+        return this.ordersService.cancelMyOrder(req.user.id, id);
     }
 
     // -------------------------------------------------------------------------

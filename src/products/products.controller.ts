@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   Query,
   BadRequestException,
+  Request,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -23,9 +24,11 @@ import {
   ApiConsumes,
   ApiBody,
   ApiOperation,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { CloudinaryService } from '../cloudinary/cloudinary.service'; // ✅ Fixed path
+import { IMAGE_UPLOAD_OPTIONS } from '../common/upload.options';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -39,12 +42,29 @@ export class ProductsController {
   ) { }
 
   // -----------------------------------------------------------------------
-  // GET /products?page=1&limit=10&categoryId=x&search=y — Public
+  // GET /products — Public, ACTIVE products only
+  // adminMode and status params are intentionally NOT accepted here.
   // -----------------------------------------------------------------------
   @Get()
-  @ApiOperation({ summary: 'Get all products with pagination, filtering and search' })
+  @ApiOperation({ summary: 'Get paginated ACTIVE products (public)' })
   async findAll(@Query() paginationDto: PaginationDto) {
-    return this.productsService.findAll(paginationDto);
+    return this.productsService.findAll({ ...paginationDto, adminMode: false });
+  }
+
+  // -----------------------------------------------------------------------
+  // GET /products/admin/all — Admin only, all statuses
+  // -----------------------------------------------------------------------
+  @Get('admin/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all products including DRAFT/ARCHIVED (Admin only)' })
+  @ApiQuery({ name: 'status', required: false, enum: ['ACTIVE', 'DRAFT', 'ARCHIVED'] })
+  async findAllAdmin(
+    @Query() paginationDto: PaginationDto,
+    @Query('status') status?: string,
+  ) {
+    return this.productsService.findAll({ ...paginationDto, adminMode: true, status });
   }
   // -----------------------------------------------------------------------
   // GET /products/best-sellers — Public
@@ -64,7 +84,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @ApiBearerAuth()
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', IMAGE_UPLOAD_OPTIONS))
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {

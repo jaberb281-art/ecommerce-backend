@@ -35,19 +35,22 @@ export class ProductsService {
   // -----------------------------------------------------------------------
 
   async findAll(paginationDto: PaginationDto & { status?: string; adminMode?: boolean }) {
-    // Query params may arrive as strings if the global ValidationPipe doesn't enable transform.
     const rawPage: any = (paginationDto as any).page ?? 1;
     const rawLimit: any = (paginationDto as any).limit ?? 10;
     const page = Math.max(1, Number(rawPage) || 1);
     const limit = Math.min(50, Math.max(1, Number(rawLimit) || 10));
 
-    const { categoryId, search, adminMode } = paginationDto;
+    const { categoryId, search, adminMode, status } = paginationDto;
     const skip = (page - 1) * limit;
 
+    // Clear precedence: admin may pass any status; public callers only ever see ACTIVE.
+    // adminMode is NEVER accepted from query params — it's set internally by the controller.
+    const statusFilter: Prisma.ProductWhereInput = adminMode
+      ? (status ? { status: status as any } : {})
+      : { status: 'ACTIVE' };
+
     const where: Prisma.ProductWhereInput = {
-      // Only filter by ACTIVE for storefront — admin sees all
-      ...(!adminMode && { status: 'ACTIVE' }),
-      ...(paginationDto.status && { status: paginationDto.status as any }),
+      ...statusFilter,
       ...(categoryId && { categoryId }),
       ...(search && {
         name: {

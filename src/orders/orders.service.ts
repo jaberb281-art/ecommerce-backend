@@ -443,6 +443,8 @@ export class OrdersService {
                 this.logger.error(`Failed to award points for order ${orderId}: ${error.message}`);
             }
         }
+
+        return updatedOrder;
     }    // -----------------------------------------------------------------------
     // ADMIN STATS
     // -----------------------------------------------------------------------
@@ -465,10 +467,51 @@ export class OrdersService {
             totalUsers: userCount,
         };
     }
-    async trackOrder(id: string) {
+
+    async cancelMyOrder(userId: string, orderId: string) {
+        const order = await this.prisma.order.findFirst({
+            where: { id: orderId, userId },
+            include: {
+                items: { select: { productId: true, quantity: true } },
+            },
+        });
+
+        if (!order) {
+            throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: 'Order not found' });
+        }
+
+        if (order.status !== OrderStatus.PENDING) {
+            throw new BadRequestException({
+                code: 'CANNOT_CANCEL',
+                message: `Only pending orders can be cancelled. Current status: ${order.status}`,
+            });
+        }
+
+        // Restore stock and cancel in a single transaction
+        return this.prisma.$transaction(async (tx) => {
+            for (const item of order.items) {
+                await tx.product.update({
+                    where: { id: item.productId },
+                    data: { stock: { increment: item.quantity } },
+                });
+            }
+            return tx.order.update({
+                where: { id: orderId },
+                data: { status: OrderStatus.CANCELLED },
+                include: { items: true },
+            });
+        });
+    }
+
+    async trackOrder(id: string, email: string) {
+        if (!id || !email) {
+            throw new BadRequestException('Order id and email are required');
+        }
+
         const order = await this.prisma.order.findUnique({
             where: { id },
             include: {
+                user: { select: { email: true } },
                 items: {
                     include: {
                         product: {
@@ -479,7 +522,8 @@ export class OrdersService {
             },
         });
 
-        if (!order) {
+        // Use the same error for "not found" and "wrong email" to prevent enumeration
+        if (!order || order.user.email.toLowerCase() !== email.toLowerCase()) {
             throw new NotFoundException('Order not found');
         }
 
