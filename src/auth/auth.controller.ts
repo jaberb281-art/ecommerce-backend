@@ -104,7 +104,7 @@ export class AuthController {
 
         // Create a short-lived one-time ticket instead of setting a cross-domain cookie.
         // The admin will exchange this ticket for the real JWT on its own domain.
-        const ticket = this.authService.createExchangeToken(result.access_token);
+        const ticket = await this.authService.createExchangeToken(result.access_token);
 
         const redirectTo = new URL('/login-success', adminUrl);
         redirectTo.searchParams.set('ticket', ticket);
@@ -119,7 +119,7 @@ export class AuthController {
         if (!ticket) {
             throw new UnauthorizedException('Ticket is required');
         }
-        const accessToken = this.authService.redeemExchangeToken(ticket);
+        const accessToken = await this.authService.redeemExchangeToken(ticket);
         if (!accessToken) {
             throw new UnauthorizedException('Invalid or expired ticket');
         }

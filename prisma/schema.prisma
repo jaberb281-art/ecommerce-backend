@@ -360,3 +360,13 @@ model PointTransaction {
   @@index([userId])
   @@index([orderId])
 }
+
+model AuthExchangeToken {
+  id          String   @id @default(uuid())
+  ticket      String   @unique
+  accessToken String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([expiresAt])
+}

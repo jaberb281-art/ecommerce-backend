@@ -77,25 +77,38 @@ export class AuthService {
   // ─── OAuth Exchange Token ────────────────────────────────────────────────
   // Short-lived one-time tokens used to securely pass the JWT across domains
   // after GitHub OAuth. The ticket is valid for 30 seconds and can only be
-  // redeemed once.
+  // redeemed once. Stored in the DB so tickets survive across serverless instances.
 
-  private exchangeTokens = new Map<string, { accessToken: string; expiresAt: number }>();
-
-  createExchangeToken(accessToken: string): string {
+  async createExchangeToken(accessToken: string): Promise<string> {
     const ticket = crypto.randomBytes(32).toString('hex');
-    this.exchangeTokens.set(ticket, {
-      accessToken,
-      expiresAt: Date.now() + 30_000, // 30 seconds
+    await this.prisma.authExchangeToken.create({
+      data: {
+        ticket,
+        accessToken,
+        expiresAt: new Date(Date.now() + 30_000),
+      },
     });
+    // Best-effort cleanup of stale rows (fire-and-forget)
+    this.prisma.authExchangeToken
+      .deleteMany({ where: { expiresAt: { lt: new Date() } } })
+      .catch(() => { });
     return ticket;
   }
 
-  redeemExchangeToken(ticket: string): string | null {
-    const entry = this.exchangeTokens.get(ticket);
-    // Always delete — one-time use regardless of outcome
-    this.exchangeTokens.delete(ticket);
+  async redeemExchangeToken(ticket: string): Promise<string | null> {
+    const entry = await this.prisma.authExchangeToken
+      .findUnique({ where: { ticket } })
+      .catch(() => null);
+
+    // Always delete on first lookup — one-time use regardless of outcome
+    if (entry) {
+      await this.prisma.authExchangeToken
+        .delete({ where: { ticket } })
+        .catch(() => { });
+    }
+
     if (!entry) return null;
-    if (Date.now() > entry.expiresAt) return null;
+    if (new Date() > entry.expiresAt) return null;
     return entry.accessToken;
   }
 

@@ -1,5 +1,5 @@
 import {
-    Controller, Get, Post, Patch, Delete, Body, Param,
+    Controller, Get, Post, Patch, Delete, Body, Param, Request,
     UseGuards, UseInterceptors, UploadedFile, BadRequestException
 } from '@nestjs/common';
 import { BadgesService } from './badges.service';
@@ -72,11 +72,13 @@ export class BadgesController {
     @Post(':id/award/:userId')
     @ApiOperation({ summary: 'Award badge to user' })
     award(
+        @Request() req: any,
         @Param('id') badgeId: string,
         @Param('userId') userId: string,
-        @Body() body: { awardedBy: string; note?: string },
+        @Body() body: { note?: string },
     ) {
-        return this.badgesService.awardToUser(badgeId, userId, body.awardedBy, body.note)
+        // awardedBy is always the authenticated admin — never trusted from the client body
+        return this.badgesService.awardToUser(badgeId, userId, req.user.id, body.note)
     }
 
     @Delete(':id/revoke/:userId')
