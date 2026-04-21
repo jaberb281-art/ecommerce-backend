@@ -10,7 +10,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { IMAGE_UPLOAD_OPTIONS } from '../common/upload.options';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { Request } from '@nestjs/common';
+import { CreateBadgeDto } from './dto/create-badge.dto';
+import { UpdateBadgeDto } from './dto/update-badge.dto';
 
 @ApiTags('badges')
 @Controller('badges')
@@ -52,13 +53,13 @@ export class BadgesController {
 
     @Post()
     @ApiOperation({ summary: 'Create a badge' })
-    create(@Body() dto: any) {
+    create(@Body() dto: CreateBadgeDto) {
         return this.badgesService.create(dto)
     }
 
     @Patch(':id')
     @ApiOperation({ summary: 'Update a badge' })
-    update(@Param('id') id: string, @Body() dto: any) {
+    update(@Param('id') id: string, @Body() dto: UpdateBadgeDto) {
         return this.badgesService.update(id, dto)
     }
 
@@ -71,13 +72,11 @@ export class BadgesController {
     @Post(':id/award/:userId')
     @ApiOperation({ summary: 'Award badge to user' })
     award(
-        @Request() req,
         @Param('id') badgeId: string,
         @Param('userId') userId: string,
-        @Body() body: { note?: string },
+        @Body() body: { awardedBy: string; note?: string },
     ) {
-        // Use the authenticated admin's ID — never trust a client-supplied awardedBy
-        return this.badgesService.awardToUser(badgeId, userId, req.user.id, body.note)
+        return this.badgesService.awardToUser(badgeId, userId, body.awardedBy, body.note)
     }
 
     @Delete(':id/revoke/:userId')

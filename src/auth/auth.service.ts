@@ -32,6 +32,7 @@ const DUMMY_HASH = '$2b$12$L8v8R6G5U6f7H8j9K0m1n2o3p4q5r6s7t8u9v0w1x2y3z4a5b6c7d
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+
   private readonly bcryptRounds: number;
 
   constructor(
@@ -42,8 +43,6 @@ export class AuthService {
   ) {
     this.bcryptRounds = this.configService.get<number>('BCRYPT_ROUNDS') ?? 12;
   }
-
-  // ─── OAuth Methods ────────────────────────────────────────────────────────
 
   async loginWithGithub(githubUser: any) {
     const email: string = githubUser.email ?? '';
@@ -64,7 +63,6 @@ export class AuthService {
           email,
           name,
           profileBg: picture,
-          // Placeholder password for OAuth users
           password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), this.bcryptRounds),
         },
       });
@@ -76,46 +74,30 @@ export class AuthService {
     return this.generateTokens(user);
   }
 
-  /**
-   * Generates a short-lived (30s) ticket to safely pass the token
-   * through a URL redirect without exposing the full session.
-   */
-  async createExchangeToken(accessToken: string): Promise<string> {
-    return this.jwtService.sign(
-      { sub: 'exchange', token: accessToken },
-      { expiresIn: '30s' }
-    );
+  // ─── OAuth Exchange Token ────────────────────────────────────────────────
+  // Short-lived one-time tokens used to securely pass the JWT across domains
+  // after GitHub OAuth. The ticket is valid for 30 seconds and can only be
+  // redeemed once.
+
+  private exchangeTokens = new Map<string, { accessToken: string; expiresAt: number }>();
+
+  createExchangeToken(accessToken: string): string {
+    const ticket = crypto.randomBytes(32).toString('hex');
+    this.exchangeTokens.set(ticket, {
+      accessToken,
+      expiresAt: Date.now() + 30_000, // 30 seconds
+    });
+    return ticket;
   }
 
-  /**
-   * Exchanges the temporary ticket for the actual access token and user data.
-   */
-  async exchangeTicket(ticket: string) {
-    try {
-      const payload = this.jwtService.verify(ticket);
-
-      if (payload.sub !== 'exchange') {
-        throw new UnauthorizedException('Invalid ticket type');
-      }
-
-      const decoded = this.jwtService.decode(payload.token) as any;
-      const user = await this.prisma.user.findUnique({
-        where: { id: decoded.sub },
-        select: { id: true, email: true, name: true, role: true }
-      });
-
-      if (!user) throw new UnauthorizedException('User not found');
-
-      return {
-        access_token: payload.token,
-        user
-      };
-    } catch (e) {
-      throw new UnauthorizedException('Ticket expired or invalid');
-    }
+  redeemExchangeToken(ticket: string): string | null {
+    const entry = this.exchangeTokens.get(ticket);
+    // Always delete — one-time use regardless of outcome
+    this.exchangeTokens.delete(ticket);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) return null;
+    return entry.accessToken;
   }
-
-  // ─── Standard Auth Methods ────────────────────────────────────────────────
 
   async register(dto: RegisterDto) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
@@ -173,8 +155,6 @@ export class AuthService {
     };
   }
 
-  // ─── Profile Management ───────────────────────────────────────────────────
-
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -230,13 +210,10 @@ export class AuthService {
     return { message: 'Password updated successfully' };
   }
 
-  // ─── Password Reset ───────────────────────────────────────────────────────
-
   async forgotPassword(email: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { email } });
 
     if (!user) {
-      // Prevents timing attacks
       await bcrypt.hash(crypto.randomBytes(32).toString('hex'), this.bcryptRounds);
       return;
     }

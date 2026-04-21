@@ -15,7 +15,8 @@ import { ShopSettingsService } from './shop-settings.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
-import { CloudinaryService } from '../../cloudinary/cloudinary.service'; // Added based on your sidebar
+import { CloudinaryService } from '../../cloudinary/cloudinary.service';
+import { UpdateShopSettingsDto } from './dto/update-shop-settings.dto';
 
 @Controller('shop-settings')
 export class ShopSettingsController {
@@ -32,7 +33,7 @@ export class ShopSettingsController {
     @Patch('update')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('ADMIN')
-    async updateSettings(@Body() updateData: any) {
+    async updateSettings(@Body() updateData: UpdateShopSettingsDto) {
         return this.shopSettingsService.updateSettings(updateData);
     }
 

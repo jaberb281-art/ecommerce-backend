@@ -102,24 +102,28 @@ export class AuthController {
             throw new Error('[GitHub OAuth] ADMIN_URL environment variable is not set');
         }
 
-        // Generate a short-lived exchange ticket instead of setting a cookie directly
-        const exchangeToken = await this.authService.createExchangeToken(result.access_token);
+        // Create a short-lived one-time ticket instead of setting a cross-domain cookie.
+        // The admin will exchange this ticket for the real JWT on its own domain.
+        const ticket = this.authService.createExchangeToken(result.access_token);
 
-        // Redirect to admin login-success with the ticket
         const redirectTo = new URL('/login-success', adminUrl);
-        redirectTo.searchParams.set('ticket', exchangeToken);
-
+        redirectTo.searchParams.set('ticket', ticket);
         return res.redirect(redirectTo.toString());
     }
 
     @Post('github/exchange')
     @Public()
     @HttpCode(HttpStatus.OK)
-    @ApiOperation({ summary: 'Exchange GitHub ticket for real access token' })
-    async exchangeGithubTicket(@Body() body: { ticket: string }) {
-        // Implement `exchangeTicket` in your AuthService to validate the ticket,
-        // burn it so it can't be reused, and return the actual user data and access_token.
-        return this.authService.exchangeTicket(body.ticket);
+    @ApiOperation({ summary: 'Exchange a one-time OAuth ticket for a JWT' })
+    async exchangeGithubTicket(@Body('ticket') ticket: string) {
+        if (!ticket) {
+            throw new UnauthorizedException('Ticket is required');
+        }
+        const accessToken = this.authService.redeemExchangeToken(ticket);
+        if (!accessToken) {
+            throw new UnauthorizedException('Invalid or expired ticket');
+        }
+        return { access_token: accessToken };
     }
 
     // ─── Session ────────────────────────────────────────────────────────────
@@ -139,6 +143,11 @@ export class AuthController {
         return this.authService.getProfile(req.user.id);
     }
 
+    /**
+     * PATCH /api/auth/me
+     * Updates the current user's profile (name, phone, profileBg).
+     * Used by the storefront profile page.
+     */
     @Patch('me')
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
@@ -150,6 +159,11 @@ export class AuthController {
         return this.authService.updateProfile(req.user.id, body);
     }
 
+    /**
+     * PATCH /api/auth/me/password
+     * Allows a logged-in user to change their own password by supplying
+     * their current password for verification.
+     */
     @Patch('me/password')
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()

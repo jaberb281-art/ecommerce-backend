@@ -4,6 +4,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { CreateCouponDto } from './dto/create-coupon.dto';
+import { UpdateCouponDto } from './dto/update-coupon.dto';
 
 @ApiTags('coupons')
 @Controller('coupons')
@@ -30,7 +32,7 @@ export class CouponsController {
     @Roles('ADMIN')
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Create a coupon (Admin only)' })
-    create(@Body() dto: any) {
+    create(@Body() dto: CreateCouponDto) {
         return this.couponsService.create(dto)
     }
 
@@ -39,7 +41,7 @@ export class CouponsController {
     @Roles('ADMIN')
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update a coupon (Admin only)' })
-    update(@Param('id') id: string, @Body() dto: any) {
+    update(@Param('id') id: string, @Body() dto: UpdateCouponDto) {
         return this.couponsService.update(id, dto)
     }
 
