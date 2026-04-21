@@ -171,14 +171,36 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        userBadges: { include: { badge: true } },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        role: true,
+        profileBg: true,
+        pointsBalance: true,
+        createdAt: true,
+        updatedAt: true,
+        // Select only the fields the storefront actually needs from badges —
+        // avoids pulling full badge objects on every session check
+        userBadges: {
+          select: {
+            id: true,
+            awardedAt: true,
+            badge: {
+              select: {
+                id: true,
+                name: true,
+                imageUrl: true,
+                color: true,
+              },
+            },
+          },
+        },
       },
     });
     if (!user) throw new NotFoundException('User not found');
-
-    const { password, resetPasswordToken, resetPasswordExpires, ...result } = user;
-    return result;
+    return user;
   }
 
   async updateProfile(userId: string, data: { name?: string; phone?: string; profileBg?: string }) {
@@ -189,13 +211,33 @@ export class AuthService {
         ...(data.phone !== undefined && { phone: data.phone }),
         ...(data.profileBg !== undefined && { profileBg: data.profileBg }),
       },
-      include: {
-        userBadges: { include: { badge: true } },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        role: true,
+        profileBg: true,
+        pointsBalance: true,
+        createdAt: true,
+        updatedAt: true,
+        userBadges: {
+          select: {
+            id: true,
+            awardedAt: true,
+            badge: {
+              select: {
+                id: true,
+                name: true,
+                imageUrl: true,
+                color: true,
+              },
+            },
+          },
+        },
       },
     });
-
-    const { password, resetPasswordToken, resetPasswordExpires, ...result } = user;
-    return result;
+    return user;
   }
 
   async changePassword(

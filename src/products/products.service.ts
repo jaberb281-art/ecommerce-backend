@@ -165,6 +165,29 @@ export class ProductsService {
     }).filter(p => p.id) // filter out products that are no longer active
   }
 
+
+  // -----------------------------------------------------------------------
+  // LOW STOCK — products with stock at or below the threshold, ordered by
+  // stock ascending so the most critical items appear first.
+  // -----------------------------------------------------------------------
+  async getLowStock(threshold = 10, limit = 20) {
+    return this.prisma.product.findMany({
+      where: {
+        stock: { lte: threshold },
+        status: 'ACTIVE',
+      },
+      select: {
+        id: true,
+        name: true,
+        stock: true,
+        images: true,
+        category: { select: { name: true } },
+      },
+      orderBy: { stock: 'asc' },
+      take: limit,
+    });
+  }
+
   // -----------------------------------------------------------------------
   // PRIVATE HELPER — pagination response envelope
   // -----------------------------------------------------------------------
