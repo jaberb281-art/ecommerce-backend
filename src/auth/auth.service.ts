@@ -156,9 +156,9 @@ export class AuthService {
     };
 
     return {
-      access_token: this.jwtService.sign(payload, {
-        expiresIn: (this.configService.get<string>('JWT_EXPIRES_IN') as any) || '24h',
-      }),
+      // No expiresIn override here — JwtModule.signOptions.expiresIn is the
+      // single source of truth (defaults to '1h', configurable via JWT_EXPIRES_IN)
+      access_token: this.jwtService.sign(payload),
       user: {
         id: user.id,
         email: user.email,

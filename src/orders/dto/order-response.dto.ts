@@ -1,32 +1,33 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { OrderStatus } from '@prisma/client';
 
 class OrderItemResponseDto {
     @ApiProperty()
-    productId: string;
+    productId!: string;
 
     @ApiProperty()
-    quantity: number;
+    quantity!: number;
 
     @ApiProperty()
-    price: number;
+    price!: number;
 }
 
 export class OrderResponseDto {
     @ApiProperty()
-    id: string;
+    id!: string;
 
     @ApiProperty()
-    userId: string;
+    userId!: string;
 
     @ApiProperty()
-    total: number;
+    total!: number;
 
-    @ApiProperty({ enum: ['PENDING', 'COMPLETED', 'CANCELLED'] })
-    status: string;
+    @ApiProperty({ enum: OrderStatus })
+    status!: OrderStatus;
 
     @ApiProperty({ type: [OrderItemResponseDto] })
-    items: OrderItemResponseDto[];
+    items!: OrderItemResponseDto[];
 
     @ApiProperty()
-    createdAt: Date;
+    createdAt!: Date;
 }

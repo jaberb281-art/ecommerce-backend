@@ -33,6 +33,18 @@ function validateEnv() {
       'The application cannot start safely without these values.',
     );
   }
+
+  // Validate FRONTEND_URL is a known safe origin to prevent redirect abuse
+  const frontendUrl = process.env.FRONTEND_URL;
+  if (frontendUrl && process.env.NODE_ENV === 'production') {
+    const allowed = allowedOrigins;
+    if (allowed.length > 0 && !allowed.some(o => frontendUrl.startsWith(o))) {
+      throw new Error(
+        `[Startup] FRONTEND_URL "${frontendUrl}" is not in ALLOWED_ORIGINS. ` +
+        'Add it to ALLOWED_ORIGINS or update FRONTEND_URL.',
+      );
+    }
+  }
 }
 
 async function bootstrap() {
