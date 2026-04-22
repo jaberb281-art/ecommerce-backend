@@ -119,7 +119,28 @@ async function bootstrap() {
 
 function setupNestApp() {
   if (!appPromise) {
-    appPromise = bootstrap();
+    appPromise = bootstrap().then(() => {
+      // Register a catch-all Express error handler AFTER Nest init.
+      // This fires for any error Nest's default filter doesn't handle cleanly.
+      server.use((err: any, _req: any, res: any, _next: any) => {
+        // eslint-disable-next-line no-console
+        console.error('[ExpressErrorHandler] Uncaught error:', {
+          message: err?.message,
+          name: err?.name,
+          code: err?.code,
+          oauthError: err?.oauthError,
+          stack: err?.stack,
+        });
+        // Return the REAL error message so we can see it in the browser
+        res.status(500).json({
+          error: 'uncaught_error',
+          message: err?.message ?? 'unknown',
+          name: err?.name,
+          oauthError: err?.oauthError ?? null,
+          stack: err?.stack?.split('\n').slice(0, 5),
+        });
+      });
+    });
   }
   return appPromise;
 }
