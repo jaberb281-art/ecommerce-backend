@@ -17,6 +17,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
@@ -129,7 +130,7 @@ export class AuthController {
     // ─── Google OAuth ────────────────────────────────────────────────────────
 
     @Get('google')
-    @UseGuards(AuthGuard('google'))
+    @UseGuards(GoogleAuthGuard)
     @Public()
     @ApiOperation({ summary: 'Initiate Google OAuth login (storefront)' })
     async googleAuth(@Req() req) {
@@ -137,7 +138,7 @@ export class AuthController {
     }
 
     @Get('callback/google')
-    @UseGuards(AuthGuard('google'))
+    @UseGuards(GoogleAuthGuard)
     @Public()
     async googleAuthRedirect(@Req() req, @Res() res) {
         const frontendUrl = process.env.FRONTEND_URL;
@@ -255,4 +256,4 @@ export class AuthController {
         await this.authService.resetPassword(body.token, body.password);
         return { message: 'Password updated successfully.' };
     }
-} 
+}
