@@ -255,4 +255,4 @@ export class AuthController {
         await this.authService.resetPassword(body.token, body.password);
         return { message: 'Password updated successfully.' };
     }
-}
+} 
