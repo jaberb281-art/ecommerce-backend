@@ -231,7 +231,7 @@ export class AuthController {
             // Step 4: Create exchange ticket and redirect to storefront
             const ticket = await this.authService.createExchangeToken(loginResult.access_token);
 
-            const redirectTo = new URL('/auth/google/callback', frontendUrl);
+            const redirectTo = new URL('/google/callback', frontendUrl);
             redirectTo.searchParams.set('ticket', ticket);
             return res.redirect(redirectTo.toString());
 
