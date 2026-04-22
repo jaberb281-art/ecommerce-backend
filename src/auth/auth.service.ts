@@ -41,7 +41,9 @@ export class AuthService {
     private configService: ConfigService,
     private mailService: MailService,
   ) {
-    this.bcryptRounds = this.configService.get<number>('BCRYPT_ROUNDS') ?? 12;
+    const rawRounds = this.configService.get<string | number>('BCRYPT_ROUNDS');
+    const parsed = typeof rawRounds === 'number' ? rawRounds : parseInt(String(rawRounds ?? ''), 10);
+    this.bcryptRounds = Number.isFinite(parsed) && parsed >= 4 && parsed <= 20 ? parsed : 12;
   }
 
   async loginWithGithub(githubUser: any) {
