@@ -17,7 +17,6 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
@@ -127,47 +126,125 @@ export class AuthController {
         return { access_token: accessToken };
     }
 
-    // ─── Google OAuth ────────────────────────────────────────────────────────
+    // ─── Google OAuth (manual implementation, no passport) ─────────────────
+    // Previously used passport-google-oauth20 but it was throwing unrecoverable
+    // errors that couldn't be caught or logged. Manual flow is ~30 lines,
+    // fully debuggable, and has no framework magic.
 
     @Get('google')
-    @UseGuards(GoogleAuthGuard)
     @Public()
     @ApiOperation({ summary: 'Initiate Google OAuth login (storefront)' })
-    async googleAuth(@Req() req) {
-        // Guard handles the redirect to Google
+    async googleAuth(@Res() res) {
+        const clientId = process.env.GOOGLE_CLIENT_ID;
+        const callbackUrl = process.env.GOOGLE_CALLBACK_URL;
+        if (!clientId || !callbackUrl) {
+            return res.status(500).json({ error: 'Google OAuth not configured' });
+        }
+
+        const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+        authUrl.searchParams.set('client_id', clientId);
+        authUrl.searchParams.set('redirect_uri', callbackUrl);
+        authUrl.searchParams.set('response_type', 'code');
+        authUrl.searchParams.set('scope', 'openid email profile');
+        authUrl.searchParams.set('access_type', 'online');
+        authUrl.searchParams.set('prompt', 'select_account');
+
+        return res.redirect(authUrl.toString());
     }
 
     @Get('callback/google')
-    @UseGuards(GoogleAuthGuard)
     @Public()
     async googleAuthRedirect(@Req() req, @Res() res) {
         const frontendUrl = process.env.FRONTEND_URL;
-        if (!frontendUrl) {
-            throw new Error('[Google OAuth] FRONTEND_URL environment variable is not set');
+        const clientId = process.env.GOOGLE_CLIENT_ID;
+        const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+        const callbackUrl = process.env.GOOGLE_CALLBACK_URL;
+
+        if (!frontendUrl || !clientId || !clientSecret || !callbackUrl) {
+            return res.status(500).json({
+                error: 'missing_env',
+                has_frontend_url: !!frontendUrl,
+                has_client_id: !!clientId,
+                has_client_secret: !!clientSecret,
+                has_callback_url: !!callbackUrl,
+            });
+        }
+
+        const code = req.query.code as string;
+        const error = req.query.error as string;
+
+        if (error) {
+            return res.status(400).json({ error: 'google_denied', detail: error });
+        }
+        if (!code) {
+            return res.status(400).json({ error: 'no_code' });
         }
 
         try {
-            const result = await this.authService.loginWithGoogle(req.user);
-            const ticket = await this.authService.createExchangeToken(result.access_token);
+            // Step 1: Exchange code for access token
+            const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    code,
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    redirect_uri: callbackUrl,
+                    grant_type: 'authorization_code',
+                }),
+            });
+
+            const tokenBody = await tokenRes.json() as any;
+            if (!tokenRes.ok) {
+                return res.status(500).json({
+                    error: 'token_exchange_failed',
+                    status: tokenRes.status,
+                    body: tokenBody,
+                });
+            }
+
+            const googleAccessToken: string = tokenBody.access_token;
+            if (!googleAccessToken) {
+                return res.status(500).json({ error: 'no_access_token', body: tokenBody });
+            }
+
+            // Step 2: Fetch user profile
+            const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { Authorization: `Bearer ${googleAccessToken}` },
+            });
+            const profile = await profileRes.json() as any;
+            if (!profileRes.ok) {
+                return res.status(500).json({
+                    error: 'profile_fetch_failed',
+                    status: profileRes.status,
+                    body: profile,
+                });
+            }
+
+            // Step 3: Login with Google user info
+            const loginResult = await this.authService.loginWithGoogle({
+                email: profile.email,
+                name: profile.name ?? profile.given_name ?? 'User',
+                picture: profile.picture ?? null,
+            });
+
+            // Step 4: Create exchange ticket and redirect to storefront
+            const ticket = await this.authService.createExchangeToken(loginResult.access_token);
 
             const redirectTo = new URL('/auth/google/callback', frontendUrl);
             redirectTo.searchParams.set('ticket', ticket);
             return res.redirect(redirectTo.toString());
+
         } catch (err: any) {
-            // Log the full error server-side so Vercel captures it with a stack trace
             // eslint-disable-next-line no-console
-            console.error('[Google OAuth callback] Failed:', {
+            console.error('[Google OAuth callback] Uncaught error:', err);
+            return res.status(500).json({
+                error: 'uncaught',
                 message: err?.message,
                 name: err?.name,
                 code: err?.code,
-                meta: err?.meta,
-                stack: err?.stack,
+                stack: err?.stack?.split('\n').slice(0, 6),
             });
-
-            // Redirect back to login with a friendly error code so the UI can show a message
-            const errorRedirect = new URL('/login', frontendUrl);
-            errorRedirect.searchParams.set('error', 'google_signin_failed');
-            return res.redirect(errorRedirect.toString());
         }
     }
 
