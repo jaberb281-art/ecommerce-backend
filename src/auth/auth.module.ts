@@ -6,7 +6,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { GithubStrategy } from './strategies/github.strategy'; // 1. Add this import
+import { GithubStrategy } from './strategies/github.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
 import type { StringValue } from 'ms';
 import { MailModule } from '../modules/mails/mail.module';
 
@@ -43,7 +44,8 @@ import { MailModule } from '../modules/mails/mail.module';
   providers: [
     AuthService,
     JwtStrategy,
-    GithubStrategy // 2. Added here correctly
+    GithubStrategy,
+    GoogleStrategy,
   ],
   exports: [AuthService],
 })

@@ -126,7 +126,52 @@ export class AuthController {
         return { access_token: accessToken };
     }
 
+    // ─── Google OAuth ────────────────────────────────────────────────────────
+
+    @Get('google')
+    @UseGuards(AuthGuard('google'))
+    @Public()
+    @ApiOperation({ summary: 'Initiate Google OAuth login (storefront)' })
+    async googleAuth(@Req() req) {
+        // Guard handles the redirect to Google
+    }
+
+    @Get('callback/google')
+    @UseGuards(AuthGuard('google'))
+    @Public()
+    async googleAuthRedirect(@Req() req, @Res() res) {
+        const result = await this.authService.loginWithGoogle(req.user);
+
+        const frontendUrl = process.env.FRONTEND_URL;
+        if (!frontendUrl) {
+            throw new Error('[Google OAuth] FRONTEND_URL environment variable is not set');
+        }
+
+        // Same ticket pattern as GitHub — avoids cross-domain cookie issues
+        const ticket = await this.authService.createExchangeToken(result.access_token);
+
+        const redirectTo = new URL('/auth/google/callback', frontendUrl);
+        redirectTo.searchParams.set('ticket', ticket);
+        return res.redirect(redirectTo.toString());
+    }
+
+    @Post('google/exchange')
+    @Public()
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Exchange a one-time Google OAuth ticket for a JWT' })
+    async exchangeGoogleTicket(@Body('ticket') ticket: string) {
+        if (!ticket) {
+            throw new UnauthorizedException('Ticket is required');
+        }
+        const accessToken = await this.authService.redeemExchangeToken(ticket);
+        if (!accessToken) {
+            throw new UnauthorizedException('Invalid or expired ticket');
+        }
+        return { access_token: accessToken };
+    }
+
     // ─── Session ────────────────────────────────────────────────────────────
+
 
     @Post('logout')
     @HttpCode(HttpStatus.OK)

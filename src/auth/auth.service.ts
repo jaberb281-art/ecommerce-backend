@@ -74,6 +74,36 @@ export class AuthService {
     return this.generateTokens(user);
   }
 
+  async loginWithGoogle(googleUser: any) {
+    const email: string = googleUser.email ?? '';
+    const name: string = googleUser.name ?? 'Guest User';
+    const picture: string = googleUser.picture ?? '';
+
+    if (!email) {
+      throw new BadRequestException('Email is required from Google provider');
+    }
+
+    let user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          name,
+          profileBg: picture,
+          password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), this.bcryptRounds),
+        },
+      });
+      this.mailService.sendWelcomeEmail(user).catch(err =>
+        this.logger.error(`Welcome email failed for ${user?.email}`, err)
+      );
+    }
+
+    return this.generateTokens(user);
+  }
+
   // ─── OAuth Exchange Token ────────────────────────────────────────────────
   // Short-lived one-time tokens used to securely pass the JWT across domains
   // after GitHub OAuth. The ticket is valid for 30 seconds and can only be
@@ -156,9 +186,9 @@ export class AuthService {
     };
 
     return {
-      // No expiresIn override here — JwtModule.signOptions.expiresIn is the
-      // single source of truth (defaults to '1h', configurable via JWT_EXPIRES_IN)
-      access_token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, {
+        expiresIn: (this.configService.get<string>('JWT_EXPIRES_IN') as any) || '24h',
+      }),
       user: {
         id: user.id,
         email: user.email,
