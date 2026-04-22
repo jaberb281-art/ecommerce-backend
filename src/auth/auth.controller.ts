@@ -140,19 +140,34 @@ export class AuthController {
     @UseGuards(AuthGuard('google'))
     @Public()
     async googleAuthRedirect(@Req() req, @Res() res) {
-        const result = await this.authService.loginWithGoogle(req.user);
-
         const frontendUrl = process.env.FRONTEND_URL;
         if (!frontendUrl) {
             throw new Error('[Google OAuth] FRONTEND_URL environment variable is not set');
         }
 
-        // Same ticket pattern as GitHub — avoids cross-domain cookie issues
-        const ticket = await this.authService.createExchangeToken(result.access_token);
+        try {
+            const result = await this.authService.loginWithGoogle(req.user);
+            const ticket = await this.authService.createExchangeToken(result.access_token);
 
-        const redirectTo = new URL('/auth/google/callback', frontendUrl);
-        redirectTo.searchParams.set('ticket', ticket);
-        return res.redirect(redirectTo.toString());
+            const redirectTo = new URL('/auth/google/callback', frontendUrl);
+            redirectTo.searchParams.set('ticket', ticket);
+            return res.redirect(redirectTo.toString());
+        } catch (err: any) {
+            // Log the full error server-side so Vercel captures it with a stack trace
+            // eslint-disable-next-line no-console
+            console.error('[Google OAuth callback] Failed:', {
+                message: err?.message,
+                name: err?.name,
+                code: err?.code,
+                meta: err?.meta,
+                stack: err?.stack,
+            });
+
+            // Redirect back to login with a friendly error code so the UI can show a message
+            const errorRedirect = new URL('/login', frontendUrl);
+            errorRedirect.searchParams.set('error', 'google_signin_failed');
+            return res.redirect(errorRedirect.toString());
+        }
     }
 
     @Post('google/exchange')
