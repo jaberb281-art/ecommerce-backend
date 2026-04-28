@@ -68,9 +68,11 @@ export class AuthService {
           password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), this.bcryptRounds),
         },
       });
-      this.mailService.sendWelcomeEmail(user).catch(err =>
-        this.logger.error(`Welcome email failed for ${user?.email}`, err)
-      );
+      try {
+        await this.mailService.sendWelcomeEmail(user);
+      } catch (err) {
+        this.logger.error(`Welcome email failed for ${user?.email}`, err);
+      }
     }
 
     return this.generateTokens(user);
@@ -98,9 +100,11 @@ export class AuthService {
           password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), this.bcryptRounds),
         },
       });
-      this.mailService.sendWelcomeEmail(user).catch(err =>
-        this.logger.error(`Welcome email failed for ${user?.email}`, err)
-      );
+      try {
+        await this.mailService.sendWelcomeEmail(user);
+      } catch (err) {
+        this.logger.error(`Welcome email failed for ${user?.email}`, err);
+      }
     }
 
     return this.generateTokens(user);
@@ -159,9 +163,11 @@ export class AuthService {
       },
     });
 
-    this.mailService.sendWelcomeEmail(user).catch(err =>
-      this.logger.error(`Welcome email failed for ${user.email}`, err)
-    );
+    try {
+      await this.mailService.sendWelcomeEmail(user);
+    } catch (err) {
+      this.logger.error(`Welcome email failed for ${user.email}`, err);
+    }
 
     return this.generateTokens(user);
   }
@@ -314,9 +320,17 @@ export class AuthService {
       data: { resetPasswordToken: hashedToken, resetPasswordExpires: expires },
     });
 
-    this.mailService.sendPasswordReset(user, rawToken, 30).catch(err =>
-      this.logger.error(`Password reset email failed for ${email}`, err)
-    );
+    // Await the email send. Fire-and-forget (.catch) does not work reliably
+    // on Vercel serverless: when the request handler resolves, the function
+    // instance may exit and kill the in-flight TLS handshake to Resend,
+    // producing ECONNRESET / "socket disconnected before TLS established".
+    try {
+      await this.mailService.sendPasswordReset(user, rawToken, 30);
+    } catch (err) {
+      this.logger.error(`Password reset email failed for ${email}`, err);
+      // Intentionally do not throw — we don't want the API response to leak
+      // whether email delivery succeeded (prevents account enumeration).
+    }
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
