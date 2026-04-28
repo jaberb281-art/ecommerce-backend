@@ -8,6 +8,17 @@ import cookieParser from 'cookie-parser'; //
 
 const server = express();
 
+// Increase body size limits for JSON/urlencoded payloads.
+// Do NOT add any body parser for multipart/form-data — Multer handles that.
+server.use((req, res, next) => {
+  if (req.headers['content-type']?.startsWith('multipart/form-data')) {
+    return next(); // Skip body parsing for file uploads — let Multer handle it
+  }
+  express.json({ limit: '10mb' })(req, res, () => {
+    express.urlencoded({ extended: true, limit: '10mb' })(req, res, next);
+  });
+});
+
 const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "")
   .split(",")
   .map(o => o.trim())
