@@ -68,11 +68,9 @@ export class AuthService {
           password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), this.bcryptRounds),
         },
       });
-      try {
-        await this.mailService.sendWelcomeEmail(user);
-      } catch (err) {
-        this.logger.error(`Welcome email failed for ${user?.email}`, err);
-      }
+      this.mailService.sendWelcomeEmail(user).catch(err =>
+        this.logger.error(`Welcome email failed for ${user?.email}`, err)
+      );
     }
 
     return this.generateTokens(user);
@@ -100,11 +98,9 @@ export class AuthService {
           password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), this.bcryptRounds),
         },
       });
-      try {
-        await this.mailService.sendWelcomeEmail(user);
-      } catch (err) {
-        this.logger.error(`Welcome email failed for ${user?.email}`, err);
-      }
+      this.mailService.sendWelcomeEmail(user).catch(err =>
+        this.logger.error(`Welcome email failed for ${user?.email}`, err)
+      );
     }
 
     return this.generateTokens(user);
@@ -163,11 +159,9 @@ export class AuthService {
       },
     });
 
-    try {
-      await this.mailService.sendWelcomeEmail(user);
-    } catch (err) {
-      this.logger.error(`Welcome email failed for ${user.email}`, err);
-    }
+    this.mailService.sendWelcomeEmail(user).catch(err =>
+      this.logger.error(`Welcome email failed for ${user.email}`, err)
+    );
 
     return this.generateTokens(user);
   }
@@ -216,6 +210,8 @@ export class AuthService {
         phone: true,
         role: true,
         profileBg: true,
+        gender: true,
+        avatarId: true,
         pointsBalance: true,
         createdAt: true,
         updatedAt: true,
@@ -241,13 +237,15 @@ export class AuthService {
     return user;
   }
 
-  async updateProfile(userId: string, data: { name?: string; phone?: string; profileBg?: string }) {
+  async updateProfile(userId: string, data: { name?: string; phone?: string; profileBg?: string; gender?: string; avatarId?: string }) {
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.phone !== undefined && { phone: data.phone }),
         ...(data.profileBg !== undefined && { profileBg: data.profileBg }),
+        ...(data.gender !== undefined && { gender: data.gender }),
+        ...(data.avatarId !== undefined && { avatarId: data.avatarId }),
       },
       select: {
         id: true,
@@ -256,6 +254,8 @@ export class AuthService {
         phone: true,
         role: true,
         profileBg: true,
+        gender: true,
+        avatarId: true,
         pointsBalance: true,
         createdAt: true,
         updatedAt: true,
@@ -320,17 +320,9 @@ export class AuthService {
       data: { resetPasswordToken: hashedToken, resetPasswordExpires: expires },
     });
 
-    // Await the email send. Fire-and-forget (.catch) does not work reliably
-    // on Vercel serverless: when the request handler resolves, the function
-    // instance may exit and kill the in-flight TLS handshake to Resend,
-    // producing ECONNRESET / "socket disconnected before TLS established".
-    try {
-      await this.mailService.sendPasswordReset(user, rawToken, 30);
-    } catch (err) {
-      this.logger.error(`Password reset email failed for ${email}`, err);
-      // Intentionally do not throw — we don't want the API response to leak
-      // whether email delivery succeeded (prevents account enumeration).
-    }
+    this.mailService.sendPasswordReset(user, rawToken, 30).catch(err =>
+      this.logger.error(`Password reset email failed for ${email}`, err)
+    );
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {

@@ -47,6 +47,14 @@ class UpdateProfileDto {
     @IsOptional()
     @IsString()
     profileBg?: string;
+
+    @IsOptional()
+    @IsString()
+    gender?: string;
+
+    @IsOptional()
+    @IsString()
+    avatarId?: string;
 }
 
 class ChangePasswordDto {
