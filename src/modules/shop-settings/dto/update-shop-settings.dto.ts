@@ -275,4 +275,21 @@ export class UpdateShopSettingsDto {
     @IsString()
     @MaxLength(500)
     dashboardMessage?: string;
+
+    // ── Club section ──────────────────────────────────────────────────────────
+    @IsOptional()
+    @IsString()
+    @MaxLength(500)
+    clubImageUrl?: string;
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(100)
+    clubHeadline?: string;
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(200)
+    @Matches(SAFE_URL, { message: 'clubLink must be a safe URL' })
+    clubLink?: string;
 }
