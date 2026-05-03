@@ -32,6 +32,8 @@ model User {
   pointsBalance     Int                @default(0)
   pointTransactions PointTransaction[]
   profileBg         String?
+  gender            String?
+  avatarId          String?
   tokenVersion         Int       @default(0)
   resetPasswordToken   String?   @unique
   resetPasswordExpires DateTime?
