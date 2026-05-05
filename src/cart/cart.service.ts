@@ -181,6 +181,7 @@ export class CartService {
                                 price: true,
                                 stock: true,
                                 images: true,
+                                category: { select: { name: true } },
                             },
                         },
                     },
