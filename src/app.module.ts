@@ -20,6 +20,7 @@ import { AddressesModule } from './addresses/addresses.module';
 import { EventsModule } from './events/events.module';
 import { ShopSettingsModule } from './modules/shop-settings/shop-settings.module';
 import { PointsModule } from './points/points.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -42,8 +43,8 @@ import { PointsModule } from './points/points.module';
     AddressesModule,
     EventsModule,
     ShopSettingsModule,
-    PointsModule, // ← NEW
-    // PaymentsModule,
+    PointsModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [

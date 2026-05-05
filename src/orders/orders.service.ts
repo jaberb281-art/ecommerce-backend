@@ -37,6 +37,15 @@ export interface CheckoutOptions {
     giftRecipientAddress?: string;
 }
 
+// Map storefront's payment id → DB enum.
+// Defaults to CASH if missing, since cash on delivery is the safest default.
+const PAYMENT_METHOD_MAP: Record<string, 'CARD' | 'APPLE_PAY' | 'BENEFIT_PAY' | 'CASH'> = {
+    credit: 'CARD',
+    applepay: 'APPLE_PAY',
+    benefitpay: 'BENEFIT_PAY',
+    cash: 'CASH',
+};
+
 // ---------------------------------------------------------------------------
 // Valid order status transitions (state machine)
 // ---------------------------------------------------------------------------
@@ -228,6 +237,12 @@ export class OrdersService {
                 data: {
                     userId,
                     total: discountedTotal,
+                    // Cash on Delivery skips the awaiting-payment state — it's already a confirmed order.
+                    // Tap-paid methods stay PENDING until the webhook lands.
+                    status: options.paymentMethod === 'cash'
+                        ? OrderStatus.PROCESSING
+                        : OrderStatus.PENDING,
+                    paymentMethod: (PAYMENT_METHOD_MAP[options.paymentMethod ?? 'cash'] ?? 'CASH') as any,
                     ...(idempotencyKey ? { idempotencyKey } : {}),
                     ...(validatedCouponId ? { couponId: validatedCouponId } : {}),
                     ...(options.addressId ? { addressId: options.addressId } : {}),
@@ -375,6 +390,30 @@ export class OrdersService {
                     user: { select: { id: true, name: true, email: true } },
                     coupon: { select: { id: true, code: true, discountType: true, discountValue: true } },
                     address: true,
+                    payments: {
+                        select: {
+                            id: true,
+                            tapChargeId: true,
+                            amount: true,
+                            currency: true,
+                            amountRefunded: true,
+                            method: true,
+                            status: true,
+                            failureReason: true,
+                            createdAt: true,
+                            refunds: {
+                                select: {
+                                    id: true,
+                                    amount: true,
+                                    status: true,
+                                    reason: true,
+                                    createdAt: true,
+                                },
+                                orderBy: { createdAt: 'desc' },
+                            },
+                        },
+                        orderBy: { createdAt: 'desc' },
+                    },
                 },
                 orderBy: { createdAt: 'desc' },
                 skip,

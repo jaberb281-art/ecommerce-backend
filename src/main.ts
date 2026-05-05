@@ -10,10 +10,29 @@ const server = express();
 
 // Increase body size limits for JSON/urlencoded payloads.
 // Do NOT add any body parser for multipart/form-data — Multer handles that.
+const TAP_WEBHOOK_PATH = '/api/payments/tap/webhook';
+
+// Increase body size limits for JSON/urlencoded payloads.
+// Do NOT add any body parser for multipart/form-data — Multer handles that.
+// For the Tap webhook route, capture the raw body so HMAC signatures can be verified.
 server.use((req, res, next) => {
+  // 1. Multipart: skip body parsing entirely (Multer handles it later).
   if (req.headers['content-type']?.startsWith('multipart/form-data')) {
-    return next(); // Skip body parsing for file uploads — let Multer handle it
+    return next();
   }
+
+  // 2. Tap webhook: parse JSON BUT also expose the raw body for HMAC check.
+  //    `verify` is called with the raw Buffer before JSON.parse runs.
+  if (req.path === TAP_WEBHOOK_PATH || req.url?.startsWith(TAP_WEBHOOK_PATH)) {
+    return express.json({
+      limit: '1mb',
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf;
+      },
+    })(req, res, next);
+  }
+
+  // 3. Everything else: existing behavior — JSON + urlencoded, 10mb limit.
   express.json({ limit: '10mb' })(req, res, () => {
     express.urlencoded({ extended: true, limit: '10mb' })(req, res, next);
   });
@@ -37,6 +56,11 @@ const REQUIRED_ENV_VARS = [
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
   'GOOGLE_CALLBACK_URL',
+  // ── Tap payments ──
+  'TAP_SECRET_KEY',
+  'TAP_WEBHOOK_SECRET',
+  'STOREFRONT_URL',
+  'BACKEND_PUBLIC_URL',
 ] as const;
 
 function validateEnv() {
