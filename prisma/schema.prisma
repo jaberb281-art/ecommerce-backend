@@ -37,6 +37,7 @@ model User {
   tokenVersion         Int       @default(0)
   resetPasswordToken   String?   @unique
   resetPasswordExpires DateTime?
+  payments             Payment[]
 }
 
 model Address {
@@ -126,6 +127,12 @@ model Order {
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   pointTransactions    PointTransaction[]
+
+  // ── Payments ──────────────────────────────────────────────────────────
+  paymentMethod        PaymentMethodType?
+  payments             Payment[]          @relation("OrderPayments")
+  currentPaymentId     String?            @unique
+  currentPayment       Payment?           @relation("OrderCurrentPayment", fields: [currentPaymentId], references: [id])
 }
 
 model OrderItem {
@@ -376,4 +383,83 @@ model AuthExchangeToken {
   createdAt   DateTime @default(now())
 
   @@index([expiresAt])
+}
+
+// ============================================================================
+// Payments — Tap integration
+// ============================================================================
+
+enum PaymentMethodType {
+  CARD
+  APPLE_PAY
+  BENEFIT_PAY
+  CASH
+}
+
+enum PaymentStatus {
+  INITIATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model Payment {
+  id                String            @id @default(uuid())
+  order             Order             @relation("OrderPayments", fields: [orderId], references: [id])
+  orderId           String
+  user              User              @relation(fields: [userId], references: [id])
+  userId            String
+
+  tapChargeId       String?           @unique
+  tapTransactionUrl String?
+  tapReference      String?
+
+  amount            Decimal           @db.Decimal(12, 3)
+  currency          String            @default("BHD")
+  amountRefunded    Decimal           @default(0) @db.Decimal(12, 3)
+
+  method            PaymentMethodType
+  status            PaymentStatus     @default(INITIATED)
+  failureReason     String?
+
+  rawResponse       Json?
+  refunds           Refund[]
+  currentForOrder   Order?            @relation("OrderCurrentPayment")
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+}
+
+model Refund {
+  id              String   @id @default(uuid())
+  payment         Payment  @relation(fields: [paymentId], references: [id])
+  paymentId       String
+  tapRefundId     String?  @unique
+  amount          Decimal  @db.Decimal(12, 3)
+  currency        String   @default("BHD")
+  reason          String?
+  status          String   @default("PENDING")
+  idempotencyKey  String?  @unique
+  rawResponse     Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([paymentId])
+}
+
+model WebhookEvent {
+  id          String   @id @default(uuid())
+  provider    String   @default("tap")
+  externalId  String
+  eventType   String
+  payload     Json
+  processedAt DateTime @default(now())
+
+  @@unique([provider, externalId, eventType])
 }
