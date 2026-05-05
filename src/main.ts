@@ -56,11 +56,6 @@ const REQUIRED_ENV_VARS = [
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
   'GOOGLE_CALLBACK_URL',
-  // ── Tap payments ──
-  'TAP_SECRET_KEY',
-  'TAP_WEBHOOK_SECRET',
-  'STOREFRONT_URL',
-  'BACKEND_PUBLIC_URL',
 ] as const;
 
 function validateEnv() {
