@@ -75,12 +75,20 @@ export class PaymentsService {
         private readonly config: ConfigService,
     ) {
         const secret = this.config.get<string>('TAP_SECRET_KEY');
-        if (!secret) throw new Error('[Payments] TAP_SECRET_KEY is required');
 
-        this.tap = new TapClient({
-            secretKey: secret,
-            apiBase: this.config.get<string>('TAP_API_BASE') ?? 'https://api.tap.company/v2',
-        });
+        if (!secret) {
+            // Don't crash the app — just warn loudly and disable Tap operations.
+            // Anyone calling createCharge / createRefund will get a clear error.
+            this.logger.warn(
+                '[Payments] TAP_SECRET_KEY is not set. Payment operations are disabled.',
+            );
+            this.tap = null as any;
+        } else {
+            this.tap = new TapClient({
+                secretKey: secret,
+                apiBase: this.config.get<string>('TAP_API_BASE') ?? 'https://api.tap.company/v2',
+            });
+        }
 
         this.storefrontUrl = (this.config.get<string>('STOREFRONT_URL') ?? '').replace(/\/$/, '');
         this.backendBaseUrl = (this.config.get<string>('BACKEND_PUBLIC_URL') ?? '').replace(/\/$/, '');
@@ -89,10 +97,10 @@ export class PaymentsService {
             (this.config.get<string>('TAP_WEBHOOK_SIGNATURE_MODE') as 'fields' | 'raw') ?? 'fields';
 
         if (!this.storefrontUrl) {
-            this.logger.warn('STOREFRONT_URL is not set — redirect URLs will be invalid');
+            this.logger.warn('[Payments] STOREFRONT_URL is not set — redirect URLs will be invalid');
         }
         if (!this.webhookSecret) {
-            this.logger.warn('TAP_WEBHOOK_SECRET is not set — webhooks will be REJECTED');
+            this.logger.warn('[Payments] TAP_WEBHOOK_SECRET is not set — webhooks will be REJECTED');
         }
     }
 
@@ -102,12 +110,19 @@ export class PaymentsService {
     // return its existing transaction URL instead of creating a duplicate.
     // =======================================================================
 
+
     async createCharge(opts: {
         userId: string;
         orderId: string;
         method: CheckoutPaymentMethod;
     }): Promise<{ paymentId: string; transactionUrl: string; chargeId: string }> {
         const { userId, orderId, method } = opts;
+        if (!this.tap) {
+            throw new InternalServerErrorException({
+                code: 'PAYMENTS_NOT_CONFIGURED',
+                message: 'Payment provider is not configured. Contact support.',
+            });
+        }
 
         // ── Load order + verify ownership ──────────────────────────────────
         const order = await this.prisma.order.findUnique({
@@ -469,6 +484,12 @@ export class PaymentsService {
         idempotencyKey?: string;
     }) {
         const { orderId, amount, reason, idempotencyKey } = opts;
+        if (!this.tap) {
+            throw new InternalServerErrorException({
+                code: 'PAYMENTS_NOT_CONFIGURED',
+                message: 'Payment provider is not configured. Contact support.',
+            });
+        }
 
         // ── Idempotency check ──────────────────────────────────────────────
         if (idempotencyKey) {
